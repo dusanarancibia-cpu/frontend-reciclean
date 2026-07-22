@@ -33,7 +33,8 @@ const ROUTES = {
   bandeja:       { view: "inicio", titulo: "Mi Bandeja", icono: "📥" },
   firmas:        { view: "inicio", titulo: "Firmas pendientes", icono: "✍️" },
   "mesa-control":{ view: "inicio", titulo: "Mesa Control", icono: "🎛️" },
-  login:         { view: "login" },
+  // (No hay ruta "login" acá: el login real es /login.html — boot() redirige duro allí
+  //  cuando no hay sesión. Una vista de login dentro del panel sería inalcanzable.)
 };
 const DEFAULT = "calculadora"; // primera pantalla funcional de la nueva arquitectura
 

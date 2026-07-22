@@ -36,26 +36,22 @@ export async function mountPublicados() {
       // Editar → Calculadora para generar NUEVA propuesta a partir del precio actual
       const editHref = `/?material_id=${encodeURIComponent(r.material_id)}` +
         `&sucursal_id=${encodeURIComponent(r.sucursal_id)}#calculadora`;
-      return `<tr class="hover:bg-stone-50" data-mat="${esc(r.material_id)}" data-suc="${esc(r.sucursal_id)}">
+      // "Borrar" está DESACTIVADO: no existe Edge Function para dar de baja un precio
+      // vigente (precio-command solo hace rechazar/bulk sobre propuestas). Antes solo
+      // atenuaba la fila y avisaba "pendiente de backend" — engañoso. Se deja deshabilitado
+      // con tooltip claro hasta que exista la baja real en el servidor.
+      return `<tr class="hover:bg-stone-50">
         <td class="px-4 py-2.5 font-medium text-stone-800">${mat}</td>
         <td class="px-4 py-2.5 text-stone-600">${suc}</td>
         <td class="px-4 py-2.5 text-right font-semibold text-emerald-700">${clp(r.precio_venta_clp)}</td>
         <td class="px-4 py-2.5 text-stone-500">${vig}</td>
         <td class="px-4 py-2.5 text-right whitespace-nowrap">
           <a href="${editHref}" class="pubEdit bg-stone-800 text-white px-3 py-1 rounded text-xs font-medium" style="text-decoration:none">Editar</a>
-          <button class="pubDel bg-white border border-rose-300 text-rose-700 px-3 py-1 rounded text-xs font-medium ml-1">Borrar</button>
+          <button class="pubDel bg-white border border-stone-200 text-stone-400 px-3 py-1 rounded text-xs font-medium ml-1"
+            disabled title="La baja de precios oficiales aún no está disponible en el sistema" style="cursor:not-allowed">Borrar</button>
         </td>
       </tr>`;
     };
-
-    // Re-cablea "Borrar" tras cada render (orden/paginación).
-    const wireBorrar = () => body.querySelectorAll(".pubDel").forEach((b) => b.addEventListener("click", () => {
-      const tr = b.closest("tr");
-      if (!confirm("¿Dar de baja este precio oficial? (baja real pendiente de backend)")) return;
-      tr.style.opacity = ".4";
-      $("publicadosInfo").textContent =
-        `Marcarías de baja ${tr.dataset.mat} / ${tr.dataset.suc} (baja real pendiente de backend).`;
-    }));
 
     montarTabla({
       tbody: body, thead: $("publicadosHead"), info: $("publicadosInfo"), pager: $("publicadosPager"),
@@ -69,7 +65,6 @@ export async function mountPublicados() {
         vigencia_desde: (r) => r.vigencia_desde || "",
       },
       infoText: (total, page, pages) => `${total} precio(s) vigente(s) · página ${page} de ${pages}.`,
-      onRender: wireBorrar,
     });
   } catch (e) {
     body.innerHTML = fila(5, "❌ No pude cargar los vigentes: " + esc(e.message));
