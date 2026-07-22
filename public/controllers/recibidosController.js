@@ -3,27 +3,15 @@
 // Nombres de material/sucursal vía loadNombres() (join id text → nombre).
 import { getClient, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
-import { escapeHTML } from "../js/util.js";
+import { escapeHTML, horaChile } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
 const esc = escapeHTML; // helper único (cubre < > & " ')
 const fila = (cols, txt) => `<tr><td colspan="${cols}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
 
-// Fecha/hora exacta en horario de Chile continental → "22 Jul 2026, 14:30".
-// created_at es timestamptz (UTC); se convierte a America/Santiago. Dato ancla para webs.
-const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-function fechaExacta(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return String(iso).slice(0, 16).replace("T", " ");
-  const parts = new Intl.DateTimeFormat("es-CL", {
-    timeZone: "America/Santiago", day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: false,
-  }).formatToParts(d);
-  const g = (t) => parts.find((x) => x.type === t)?.value || "";
-  return `${g("day")} ${MESES[parseInt(g("month"), 10) - 1]} ${g("year")}, ${g("hour")}:${g("minute")}`;
-}
+// Fecha/hora exacta en horario de Chile continental → "22 Jul 2026, 14:30" (helper compartido).
+const fechaExacta = horaChile;
 
 // Píldora amigable para el proposalId → #1045
 const badgeId = (id) =>

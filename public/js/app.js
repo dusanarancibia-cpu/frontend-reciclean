@@ -4,6 +4,7 @@ import { renderSidebar, setActive, MENU } from "../components/sidebar.js";
 import { renderNavbar, setUsuario } from "../components/navbar.js";
 import { renderDiegoWidget } from "../components/diegoWidget.js";
 import { getSession, waitSupabase } from "../models/supabase.js";
+import { iniciarRelojChile } from "./util.js";
 import { mountCalculadora } from "../controllers/calculadoraController.js";
 import { initDiego } from "../controllers/diegoController.js";
 import { mountRecibidos } from "../controllers/recibidosController.js";
@@ -82,6 +83,9 @@ async function boot() {
 
   renderSidebar($sidebar, navigate);
   renderNavbar($navbar);
+
+  // Reloj en vivo (siempre hora de Chile): actualiza header y footer cada 30 s.
+  iniciarRelojChile();
 
   // Botón hamburguesa ☰ · alterna .collapsed en el sidebar (el contenido se expande solo)
   $navbar.querySelector("#navMenuBtn")

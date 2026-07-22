@@ -5,7 +5,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, EF } from "../js/config.js";
 import { getClient, getSession, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { abrirModal } from "../components/modal.js";
-import { escapeHTML } from "../js/util.js";
+import { escapeHTML, horaChile } from "../js/util.js";
 
 let _apiRev = null;   // handle de la tabla (para re-render tras aprobar)
 let _rowsRev = [];    // filas pendientes en memoria
@@ -178,7 +178,7 @@ export async function mountRevision() {
         filaDet("Retención IVA", pct(m.iva_pct)) +
         filaDet("Origen", esc(r.ruta || "—")) +
         filaDet("Ingresado por", esc(r.creado_por || m.editado_por || "—")) +
-        filaDet("Creado", r.created_at ? String(r.created_at).slice(0, 16).replace("T", " ") : "—");
+        filaDet("Creado", horaChile(r.created_at));
       abrirModal({
         titulo: "Detalle del precio",
         cuerpoHTML: cuerpo,
