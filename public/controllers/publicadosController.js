@@ -1,0 +1,75 @@
+// CONTROLADOR · Publicados. Precios oficiales VIGENTES (datos reales).
+// Fuente: curated.vw_materiales_sucursal_precios_vigente (ids text, sin nombres).
+// Hidratamos nombres con loadNombres() (materiales + sucursales) y mostramos Editar/Borrar.
+import { getClient, loadNombres } from "../models/supabase.js";
+import { montarTabla } from "../js/listaTabla.js";
+
+const $ = (id) => document.getElementById(id);
+const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
+const fecha = (d) => (d ? String(d).slice(0, 10) : "—");
+const esc = (s) => String(s ?? "").replace(/</g, "&lt;");
+const fila = (cols, txt) => `<tr><td colspan="${cols}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
+
+export async function mountPublicados() {
+  const body = $("publicadosBody");
+  body.innerHTML = fila(5, "Cargando…");
+
+  try {
+    const sb = getClient();
+    // Vista de vigentes + mapas de nombres, en paralelo.
+    const [{ data, error }, nombres] = await Promise.all([
+      sb.schema("curated").from("vw_materiales_sucursal_precios_vigente")
+        .select("material_id, sucursal_id, precio_venta_clp, precio_compra_clp, vigencia_desde, vigencia_hasta")
+        .order("vigencia_desde", { ascending: false })
+        .limit(1000),
+      loadNombres(),
+    ]);
+    if (error) throw error;
+    if (!data || !data.length) { body.innerHTML = fila(5, "Sin precios vigentes."); return; }
+
+    const renderRow = (r) => {
+      const mat = esc(nombres.material(r.material_id));
+      const suc = esc(nombres.sucursal(r.sucursal_id));
+      const vig = "desde " + fecha(r.vigencia_desde) + (r.vigencia_hasta ? " · hasta " + fecha(r.vigencia_hasta) : "");
+      // Editar → Calculadora para generar NUEVA propuesta a partir del precio actual
+      const editHref = `/?material_id=${encodeURIComponent(r.material_id)}` +
+        `&sucursal_id=${encodeURIComponent(r.sucursal_id)}#calculadora`;
+      return `<tr class="hover:bg-stone-50" data-mat="${esc(r.material_id)}" data-suc="${esc(r.sucursal_id)}">
+        <td class="px-4 py-2.5 font-medium text-stone-800">${mat}</td>
+        <td class="px-4 py-2.5 text-stone-600">${suc}</td>
+        <td class="px-4 py-2.5 text-right font-semibold text-emerald-700">${clp(r.precio_venta_clp)}</td>
+        <td class="px-4 py-2.5 text-stone-500">${vig}</td>
+        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+          <a href="${editHref}" class="pubEdit bg-stone-800 text-white px-3 py-1 rounded text-xs font-medium" style="text-decoration:none">Editar</a>
+          <button class="pubDel bg-white border border-rose-300 text-rose-700 px-3 py-1 rounded text-xs font-medium ml-1">Borrar</button>
+        </td>
+      </tr>`;
+    };
+
+    // Re-cablea "Borrar" tras cada render (orden/paginación).
+    const wireBorrar = () => body.querySelectorAll(".pubDel").forEach((b) => b.addEventListener("click", () => {
+      const tr = b.closest("tr");
+      if (!confirm("¿Dar de baja este precio oficial? (baja real pendiente de backend)")) return;
+      tr.style.opacity = ".4";
+      $("publicadosInfo").textContent =
+        `Marcarías de baja ${tr.dataset.mat} / ${tr.dataset.suc} (baja real pendiente de backend).`;
+    }));
+
+    montarTabla({
+      tbody: body, thead: $("publicadosHead"), info: $("publicadosInfo"), pager: $("publicadosPager"),
+      rows: data, renderRow, colspan: 5, pageSize: 25,
+      vacio: "Sin precios vigentes.",
+      sortInicial: { key: "vigencia_desde", dir: "desc" },
+      sorters: {
+        material: (r) => nombres.material(r.material_id),
+        sucursal: (r) => nombres.sucursal(r.sucursal_id),
+        precio_venta_clp: (r) => Number(r.precio_venta_clp),
+        vigencia_desde: (r) => r.vigencia_desde || "",
+      },
+      infoText: (total, page, pages) => `${total} precio(s) vigente(s) · página ${page} de ${pages}.`,
+      onRender: wireBorrar,
+    });
+  } catch (e) {
+    body.innerHTML = fila(5, "❌ No pude cargar los vigentes: " + esc(e.message));
+  }
+}

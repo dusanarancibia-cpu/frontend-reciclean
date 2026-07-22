@@ -1,0 +1,20 @@
+/* Estilos propios de la Calculadora aislada (lo que Tailwind no cubre) */
+body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+
+/* Sliders con agarre grande — idéntico a panel-rdo.html (T-42) */
+.calc-slider { -webkit-appearance: none; appearance: none; width: 100%;
+  height: 8px; border-radius: 999px; background: #e7e5e4; outline: none; }
+.calc-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%; background: #059669;
+  border: 3px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; }
+.calc-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%;
+  background: #059669; border: 3px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; }
+.calc-slider::-moz-range-track { height: 8px; border-radius: 999px; background: #e7e5e4; }
+
+/* Chip de sesión (inline para no depender del purge de Tailwind) */
+.chip { font-size: 12px; padding: 4px 12px; border-radius: 999px; font-weight: 600;
+  background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.chip.off { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+
+/* Botón de redondeo activo */
+.calcRedondeoBtn.active { background: #059669; color: #fff; }

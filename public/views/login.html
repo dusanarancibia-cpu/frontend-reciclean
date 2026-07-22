@@ -1,0 +1,31 @@
+<!-- VISTA · Login (estructura base, aún sin lógica de autenticación).
+     La sesión real hoy se hereda del login del panel por mismo dominio. -->
+<section class="min-h-[70vh] flex items-center justify-center p-6">
+  <div class="bg-white border border-stone-200 rounded-xl p-8 w-full max-w-sm">
+    <div class="flex flex-col items-center mb-6">
+      <span class="w-12 h-12 rounded-xl bg-emerald-700 text-white text-xl font-bold flex items-center justify-center">R</span>
+      <h2 class="text-xl font-bold text-stone-800 mt-3">Ingreso al panel</h2>
+      <p class="text-xs text-stone-500 mt-1">Grupo Reciclean-Farex</p>
+    </div>
+
+    <form id="loginForm" class="space-y-3" onsubmit="return false">
+      <div>
+        <label class="block text-xs text-stone-600 mb-1">Correo</label>
+        <input id="loginEmail" type="email" autocomplete="username"
+          class="w-full border border-stone-300 rounded px-3 py-2 text-sm" placeholder="tu@empresa.cl" />
+      </div>
+      <div>
+        <label class="block text-xs text-stone-600 mb-1">Clave</label>
+        <input id="loginPass" type="password" autocomplete="current-password"
+          class="w-full border border-stone-300 rounded px-3 py-2 text-sm" placeholder="••••••••" />
+      </div>
+      <button id="loginBtn" type="submit"
+        class="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded text-sm font-medium">
+        Entrar
+      </button>
+      <p class="text-[11px] text-stone-400 text-center pt-1">
+        Estructura base · la autenticación se conectará en una fase posterior.
+      </p>
+    </form>
+  </div>
+</section>

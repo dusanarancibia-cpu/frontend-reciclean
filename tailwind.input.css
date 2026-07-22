@@ -1,0 +1,8 @@
+/* Tailwind input — se compila a public/tailwind.css en npm run build:css.
+   El archivo de salida (public/tailwind.css) está versionado en el repo
+   para asegurar que esté siempre disponible en deploys, aunque el build
+   CSS falle. Regenerar con: npm run build:css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

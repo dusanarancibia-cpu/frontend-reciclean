@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ingresar · Reciclean</title>
+  <meta name="theme-color" content="#1A7A3C" />
+  <link rel="stylesheet" href="/tailwind.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script>
+    // Repo público: la anon key NO es secreto.
+    window.RECICLEAN_CONFIG = {
+      SUPABASE_URL: "https://eknmtsrtfkzroxnovfqn.supabase.co",
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrbm10c3J0Zmt6cm94bm92ZnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDY2ODgsImV4cCI6MjA5MDk4MjY4OH0.8Y4N0lw3DFN3Y8-R6ID7t_LAfgHWDM5N-oa4Ji9bncg",
+    };
+  </script>
+</head>
+<body class="bg-stone-100 text-stone-800" style="font-family:Inter,system-ui,sans-serif">
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white border border-stone-300 rounded-xl shadow-sm p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="w-9 h-9 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center">R</span>
+        <div class="leading-tight">
+          <div class="font-bold text-stone-800">Reciclean</div>
+          <div class="text-xs text-stone-500">Panel de precios</div>
+        </div>
+      </div>
+      <h1 class="text-lg font-bold text-stone-800 mb-1">Ingresar</h1>
+      <p class="text-sm text-stone-500 mb-4">Entra con tu correo y clave.</p>
+      <form id="loginForm" class="space-y-3">
+        <div>
+          <label class="block text-xs text-stone-600 mb-1" for="email">Correo</label>
+          <input id="email" type="email" required autocomplete="username"
+            class="w-full border border-stone-300 rounded px-3 py-2 text-sm bg-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-stone-600 mb-1" for="password">Clave</label>
+          <input id="password" type="password" required autocomplete="current-password"
+            class="w-full border border-stone-300 rounded px-3 py-2 text-sm bg-white" />
+        </div>
+        <button id="btn" type="submit"
+          class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded text-sm disabled:opacity-50">Entrar</button>
+      </form>
+      <p id="msg" class="text-sm mt-3 text-rose-600"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    const cfg = window.RECICLEAN_CONFIG;
+    const $ = (id) => document.getElementById(id);
+    // Espera a que el SDK del CDN esté disponible.
+    for (let i = 0; i < 100 && !(window.supabase && window.supabase.createClient); i++) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+    // Si ya hay sesión activa, directo al panel.
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) location.replace("/");
+    } catch (_) { /* sigue mostrando el login */ }
+
+    $("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("btn").disabled = true; $("msg").textContent = "";
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        $("msg").textContent = "No pude entrar: " + error.message;
+        $("btn").disabled = false;
+        return;
+      }
+      location.replace("/");
+    });
+  </script>
+</body>
+</html>

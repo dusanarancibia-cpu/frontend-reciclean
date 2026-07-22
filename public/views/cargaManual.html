@@ -1,0 +1,49 @@
+<!-- VISTA · Carga manual. Carga a mano uno o varios precios y los manda a Recibidos.
+     Inserta en staging.precios_propuestos (ruta='andrea', estado='pendiente'). -->
+<section class="max-w-5xl mx-auto p-4 md:p-6">
+  <header class="mb-4">
+    <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>📝</span><span>Carga manual</span></h2>
+    <p class="text-sm text-stone-500 mt-1">Carga precios a mano o desde un archivo <b>CSV/Excel</b>. Al enviar, entran a <b>Recibidos</b> y siguen el flujo normal (Calculadora / Revisión → Publicados).</p>
+  </header>
+
+  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
+        <tr>
+          <th class="text-left px-3 py-2.5">Material</th>
+          <th class="text-left px-3 py-2.5">Sucursal</th>
+          <th class="text-right px-3 py-2.5">P. compra</th>
+          <th class="text-right px-3 py-2.5">P. venta</th>
+          <th class="text-left px-3 py-2.5">Vigencia</th>
+          <th class="px-3 py-2.5"></th>
+        </tr>
+      </thead>
+      <tbody id="cmBody" class="divide-y divide-stone-100">
+        <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400">Cargando materiales…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <input type="file" id="cmFileInput" accept=".csv,.xlsx,.xls" style="display:none">
+  <div class="mt-3 flex flex-wrap items-center gap-2">
+    <button id="cmAddRow" type="button"
+      style="background:#0f766e;color:#fff;padding:8px 14px;border-radius:6px;font-size:14px;font-weight:700;border:none;cursor:pointer">
+      + Agregar fila
+    </button>
+    <button id="cmImportBtn" type="button"
+      style="background:#fff;border:1px solid #d6d3d1;color:#44403c;padding:8px 14px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">
+      📄 Importar CSV/Excel
+    </button>
+    <button id="cmPlantilla" type="button"
+      style="background:none;border:none;color:#0f766e;padding:8px 4px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline">
+      Descargar plantilla
+    </button>
+    <span class="flex-1"></span>
+    <button id="cmEnviar" type="button"
+      style="background:#047857;color:#fff;padding:8px 18px;border-radius:6px;font-size:14px;font-weight:700;border:none;cursor:pointer">
+      Enviar a Recibidos
+    </button>
+  </div>
+  <p class="text-xs text-stone-500 mt-2">Columnas del archivo: <b>material, sucursal, compra, venta, vigencia</b> (material y sucursal se emparejan por nombre). La venta debe ser mayor o igual a la compra.</p>
+  <p class="text-sm text-stone-600 mt-2" id="cmInfo"></p>
+</section>

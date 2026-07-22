@@ -1,0 +1,16 @@
+{
+  "name": "reciclean-sistema-v2",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Panel de precios Reciclean — arquitectura modular (repo único v2). Sitio estático (ES modules nativos) servido desde public/.",
+  "scripts": {
+    "dev": "serve public -l 3000",
+    "build:css": "tailwindcss -i ./tailwind.input.css -o ./public/tailwind.css --minify",
+    "build": "npm run build:css"
+  },
+  "devDependencies": {
+    "serve": "^14.2.3",
+    "tailwindcss": "^3.4.17"
+  }
+}

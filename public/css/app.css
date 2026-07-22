@@ -1,0 +1,63 @@
+/* Estilos del layout modular (lo que Tailwind no cubre inline).
+   Los estilos de la calculadora (sliders, chips) vienen de /calculadora/css/calculadora.css */
+
+body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+
+/* Sidebar --------------------------------------------------------------- */
+.app-sidebar { position: sticky; top: 0; height: 100vh; transition: width .18s ease; }
+
+/* Secciones desplegables (acordeón) --------------------------------------- */
+.nav-group-h {
+  display: flex; align-items: center; gap: 10px; width: calc(100% - 16px);
+  margin: 4px 8px 2px; padding: 8px 14px; border-radius: 8px;
+  background: transparent; border: 0; cursor: pointer; color: #a8a29e;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+}
+.nav-group-h:hover { background: #292524; color: #e7e5e4; }
+.nav-group-h .nav-ico { width: 20px; text-align: center; }
+.nav-group-h .nav-caret { margin-left: auto; transition: transform .18s ease; font-size: 10px; }
+.nav-group.open .nav-group-h .nav-caret { transform: rotate(180deg); }
+
+.nav-group-body { max-height: 0; overflow: hidden; transition: max-height .22s ease; }
+.nav-group.open .nav-group-body { max-height: 420px; }
+
+/* Estado colapsado: barra angosta, solo íconos. #content se expande solo
+   porque el aside deja de ocupar 16rem. */
+.app-sidebar.collapsed { width: 64px; }
+.app-sidebar.collapsed .sb-brand-text,
+.app-sidebar.collapsed .sb-footer,
+.app-sidebar.collapsed .nav-label,
+.app-sidebar.collapsed .nav-caret,
+.app-sidebar.collapsed .nav-soon { display: none; }
+/* En colapsado se muestran todos los íconos en fila (sin acordeón) */
+.app-sidebar.collapsed .nav-group-body { max-height: none; }
+.app-sidebar.collapsed .nav-group-h { justify-content: center; padding: 8px 0; margin: 4px 8px 0; }
+.app-sidebar.collapsed .nav-item { justify-content: center; margin: 2px 8px; padding: 9px 0; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-radius: 8px; margin: 2px 8px;
+  font-size: 14px; color: #d6d3d1; cursor: pointer;
+  border: 1px solid transparent; transition: background .12s, color .12s;
+}
+.nav-item:hover { background: #292524; color: #fff; }
+.nav-item.active { background: #059669; color: #fff; font-weight: 600; }
+.nav-item .nav-ico { width: 20px; text-align: center; }
+.nav-item .nav-soon {
+  margin-left: auto; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .04em; color: #78716c;
+}
+.nav-item.active .nav-soon { color: #d1fae5; }
+
+.nav-section {
+  padding: 14px 16px 6px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .08em; color: #78716c;
+}
+
+/* Navbar ---------------------------------------------------------------- */
+.nav-search {
+  flex: 1; max-width: 420px;
+  border: 1px solid #e7e5e4; border-radius: 8px;
+  padding: 7px 12px; font-size: 14px; background: #fafaf9;
+}
+.nav-search:focus { outline: none; border-color: #059669; background: #fff; }

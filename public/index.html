@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reciclean · Panel modular</title>
+  <meta name="theme-color" content="#1A7A3C" />
+
+  <!-- Mismo diseño que panel-rdo.html: Tailwind construido + Inter -->
+  <link rel="stylesheet" href="/tailwind.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <!-- Estilos de la calculadora (sliders, chips) + estilos del layout modular -->
+  <link rel="stylesheet" href="/calculadora/css/calculadora.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+
+  <!-- Cliente Supabase global (window.supabase), igual que el panel -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+
+  <!-- Config GLOBAL del panel modular. Se define acá (no se importa un JS de /public
+       por ruta absoluta, que Vite bloquea). El repo es público: la anon key NO es secreto. -->
+  <script>
+    window.RECICLEAN_CONFIG = {
+      SUPABASE_URL: "https://eknmtsrtfkzroxnovfqn.supabase.co",
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrbm10c3J0Zmt6cm94bm92ZnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDY2ODgsImV4cCI6MjA5MDk4MjY4OH0.8Y4N0lw3DFN3Y8-R6ID7t_LAfgHWDM5N-oa4Ji9bncg",
+      EF: {
+        precioAplicar: "/functions/v1/precio-aplicar",
+        precioCommand: "/functions/v1/precio-command",
+        diegoChatProcess: "/functions/v1/diego-chat-process",
+      },
+    };
+  </script>
+
+  <!-- App modular (router + componentes) · ES modules nativos, sin build -->
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body class="bg-stone-100 text-stone-800">
+
+  <div class="flex min-h-screen">
+    <!-- Menú lateral izquierdo (inyectado por components/sidebar.js) -->
+    <aside id="sidebar" class="app-sidebar bg-stone-900 text-stone-200 w-64 shrink-0 flex flex-col"></aside>
+
+    <!-- Columna principal -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Barra superior (inyectada por components/navbar.js) -->
+      <header id="navbar" class="bg-white border-b border-stone-200 h-14 flex items-center px-4 gap-3"></header>
+
+      <!-- Área de contenido: cada vista se inyecta aquí -->
+      <main id="content" class="flex-1 overflow-y-auto">
+        <div class="p-8 text-stone-400 text-sm">Cargando…</div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Widget flotante de Diego (inyectado por components/diegoWidget.js) -->
+  <div id="diego-widget"></div>
+
+</body>
+</html>
