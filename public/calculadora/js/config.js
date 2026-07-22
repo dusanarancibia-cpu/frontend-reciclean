@@ -1,13 +1,23 @@
-// Configuración global de la Calculadora aislada.
-// Repo público: la anon key NO es secreto (mismo valor que usa panel-rdo.html).
-export const SUPABASE_URL = "https://eknmtsrtfkzroxnovfqn.supabase.co";
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrbm10c3J0Zmt6cm94bm92ZnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDY2ODgsImV4cCI6MjA5MDk4MjY4OH0.8Y4N0lw3DFN3Y8-R6ID7t_LAfgHWDM5N-oa4Ji9bncg";
+// Configuración de la Calculadora aislada.
+// FUENTE ÚNICA DE VERDAD: window.RECICLEAN_CONFIG (definido en el <head> de index.html).
+// Antes acá se hardcodeaban URL/anon/EF, lo que causaba "drift": el EF de este archivo
+// omitía precioCommand y podía divergir del global. Ahora se CONSUME el global (igual que
+// public/js/config.js). En v2 la Calculadora SIEMPRE va embebida en el panel, así que el
+// global existe; igual dejamos fallbacks defensivos para no romper si faltara.
+const C = (typeof window !== "undefined" && window.RECICLEAN_CONFIG) || {};
+if (!C.SUPABASE_URL) {
+  console.error("[calculadora] Falta window.RECICLEAN_CONFIG — ¿se cargó dentro de index.html?");
+}
 
-// Endpoints y objetos de BD (un solo lugar para cambiarlos)
-export const EF = {
-  precioAplicar: "/functions/v1/precio-aplicar",
-  diegoChatProcess: "/functions/v1/diego-chat-process",
-};
+// Repo público: la anon key NO es secreto. No se hardcodea acá para evitar duplicación.
+export const SUPABASE_URL = C.SUPABASE_URL || "";
+export const SUPABASE_ANON_KEY = C.SUPABASE_ANON_KEY || "";
+
+// Endpoints de Edge Functions: heredados COMPLETOS del global (incluye precioCommand).
+export const EF = C.EF || {};
+
+// Objetos de BD (schema/relación). Son mapeos propios de la Calculadora, no credenciales,
+// así que viven acá (no en el global). Un solo lugar para cambiarlos.
 export const DB = {
   bandeja: { schema: "staging", rel: "v_bandeja_precios" },
   propuestos: { schema: "staging", rel: "precios_propuestos" },
