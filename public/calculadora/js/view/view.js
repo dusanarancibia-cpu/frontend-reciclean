@@ -115,9 +115,6 @@ export function fillCategorias(metas) {
 export const getSel = (id) => $(id).value;
 export const setSel = (id, v) => { $(id).value = v || ""; };
 export const filtroEnAnalisis = () => $("calcFiltroEnAnalisis").checked;
-// Checkbox "Nuevo caso": modo alta (crear desde cero) vs. caso cargado.
-export const esNuevo = () => $("calcNuevo")?.checked || false;
-export const setNuevo = (v) => { const el = $("calcNuevo"); if (el) el.checked = !!v; };
 
 // Estado / mensajes
 export function chip(email) {
@@ -163,8 +160,7 @@ export function bind(handlers) {
     $(id).addEventListener("change", () => handlers.onSelect(id)));
   $("calcFiltroEnAnalisis").addEventListener("change", handlers.onFiltro);
   $("btnCargar").addEventListener("click", handlers.onCargar);
-  // btnGuardar = "← Regresar" · btnAprobar = "Pasar a revisión →"
+  // btnGuardar = "← Regresar" · btnAprobar = "Pasar a Aprobación Final →"
   $("btnGuardar").addEventListener("click", handlers.onRegresar);
   $("btnAprobar").addEventListener("click", handlers.onPasarRevision);
-  if (handlers.onNuevo) $("calcNuevo")?.addEventListener("change", handlers.onNuevo);
 }

@@ -3,6 +3,7 @@ import * as db from "../model/db.js";
 import { calcular, semaforo } from "../model/formula.js";
 import * as view from "../view/view.js";
 import { DEFAULTS } from "../config.js";
+import { abrirModal } from "../../../components/modal.js";
 
 const state = {
   modo: "0",
@@ -91,18 +92,35 @@ async function pintarMateriales() {
   view.fillSelect("calcMaterial", lista, "material_id", "nombre", "(seleccionar)", "categoria");
 }
 
-// "Pasar a revisión" → NO publica. Deja la propuesta calculada (ruta manual_calc,
-// estado pendiente) para que aparezca en Aprobación Final, donde gerencia publica.
-// Si el material no tiene costo vigente, el "Precio de compra (costo)" se guarda en
-// metadata para que la publicación final pueda usarlo.
+// "Pasar a Aprobación Final" → NO publica. Deja la propuesta calculada (ruta manual_calc,
+// estado pendiente) para que aparezca en Aprobación Final, donde gerencia publica; y navega
+// directo a esa vista. Si el material no tiene costo vigente, el "Precio de compra (costo)"
+// se guarda en metadata para que la publicación final pueda usarlo.
 async function onPasarRevision() {
-  // Modo alta: si está marcado "Nuevo caso" pero aún no se inicializó, hacerlo ahora.
-  if (view.esNuevo() && !state.caso) {
+  // Sin caso registrado (proposalId null): advertir antes de crear un precio nuevo.
+  if (!state.caso || state.caso.id == null) {
     const mat = view.getSel("calcMaterial"), suc = view.getSel("calcSucursal");
-    if (!mat || !suc) return view.actMsg("Elige material y sucursal para crear el nuevo caso.", "warn");
-    await cargarDesdeVigente(mat, suc);
+    if (!mat || !suc) return view.actMsg("Elige material y sucursal (o carga un caso por su ID).", "warn");
+    abrirModal({
+      titulo: "Crear precio nuevo",
+      cuerpoHTML: `<p style="margin:0;color:#475569">No hay un caso registrado para este material/sucursal.
+        ¿Quieres crear un precio nuevo sin registrar y pasarlo a Aprobación Final?</p>`,
+      acciones: [
+        { texto: "Cancelar" },
+        { texto: "Crear y pasar", primario: true, onClick: async () => {
+            if (!state.caso) await cargarDesdeVigente(mat, suc);
+            await guardarYPasar();
+          } },
+      ],
+    });
+    return;
   }
-  if (!state.caso) return view.actMsg("Marca “Nuevo caso” o carga un caso por su ID primero.", "warn");
+  await guardarYPasar();
+}
+
+// Guarda el caso como propuesta calculada (INSERT si es nuevo, UPDATE si existe) y, al
+// terminar bien, navega a Aprobación Final (#revision).
+async function guardarYPasar() {
   const sess = await db.getSession();
   if (!sess?.user?.email) return view.actMsg("⚠️ Sin sesión — inicia sesión en el panel.", "warn");
   const c = recompute();
@@ -125,7 +143,6 @@ async function onPasarRevision() {
       });
       state.caso.id = row.id;
       view.setPid(String(row.id));
-      view.setNuevo(false);
       view.renderCapa1(state.caso);
       view.actMsg("✅ Enviado a Aprobación Final · caso #" + row.id + " · P. Lista Nuevo " + c.plista, "ok");
     } else {
@@ -133,6 +150,8 @@ async function onPasarRevision() {
       await db.guardarBorrador(state.caso.id, { ruta: "manual_calc", precio_clp_kg: c.plista, metadata });
       view.actMsg("✅ Actualizado y en Aprobación Final · caso " + state.caso.id + " · P. Lista Nuevo " + c.plista, "ok");
     }
+    // Ir directo a Aprobación Final (el router escucha el cambio de hash).
+    window.location.hash = "#revision";
   } catch (e) {
     view.actMsg("❌ " + e.message + " (si es RLS, el guardado debe ir por Edge Function)", "err");
   } finally { view.disable("btnAprobar", false); }
@@ -151,23 +170,6 @@ export async function init() {
     onSelect, onFiltro,
     onCargar: () => { const id = view.getPid(); if (id) cargarCaso(id); },
     onPasarRevision, onRegresar,
-    // Checkbox "Nuevo caso": marcado → parte de cero con el material/sucursal elegidos;
-    // desmarcado → limpia el caso para volver a elegir o cargar por ID.
-    onNuevo: () => {
-      if (!view.esNuevo()) {
-        state.caso = null; state.vigente = null; view.setPid("");
-        view.loadMsg("Marca “Nuevo caso” o carga un caso por su ID.", "muted");
-        recompute();
-        return;
-      }
-      const mat = view.getSel("calcMaterial"), suc = view.getSel("calcSucursal");
-      if (!mat || !suc) {
-        view.setNuevo(false);
-        return view.actMsg("Elige material y sucursal para crear el nuevo caso.", "warn");
-      }
-      view.setPid("");
-      cargarDesdeVigente(mat, suc);
-    },
   });
   view.activarRedondeo(state.modo);
 
