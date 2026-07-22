@@ -1,5 +1,6 @@
-<!-- VISTA · Revisión (stub). Precios calculados pendientes de aprobación.
-     Checkbox por fila + confirmar 1 a 1 o en lote. Aprobar → precio-aplicar (futuro). -->
+<!-- VISTA · Aprobación Final. Precios calculados pendientes de aprobar.
+     Por fila: Ver / Aceptar (publica) / Modificar (calculadora) / Eliminar (rechaza).
+     Además confirmar en lote con los checkboxes. -->
 <section class="max-w-5xl mx-auto p-4 md:p-6">
   <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
@@ -11,7 +12,7 @@
     </button>
   </header>
 
-  <div class="bg-white border border-stone-300 rounded-lg overflow-hidden">
+  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
       <thead id="revisionHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
         <tr>
@@ -20,7 +21,7 @@
           <th class="text-left px-4 py-2.5" data-sort="sucursal">Sucursal</th>
           <th class="text-right px-4 py-2.5" data-sort="precio_clp_kg">P. Lista Nuevo</th>
           <th class="text-right px-4 py-2.5" data-sort="precio_actual">P. Lista Actual</th>
-          <th class="text-right px-4 py-2.5">Confirmar</th>
+          <th class="text-right px-4 py-2.5">Acciones</th>
         </tr>
       </thead>
       <tbody id="revisionBody" class="divide-y divide-stone-100">
