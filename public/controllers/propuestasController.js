@@ -11,6 +11,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, EF } from "../js/config.js";
 import { getClient, getSession, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { escapeHTML } from "../js/util.js";
+import { abrirModal } from "../components/modal.js";
 
 const $ = (id) => document.getElementById(id);
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
@@ -59,19 +60,38 @@ async function onAceptar(id) {
   $("propuestasInfo").textContent = "✅ Propuesta aceptada → pasó a Revisión.";
 }
 
+// Pide el motivo con el modal del panel (antes: prompt() nativo) y, al confirmar,
+// dispara el rechazo real vía Edge Function.
 async function onRechazar(id) {
   const sess = await getSession().catch(() => null);
   if (!sess?.access_token) {
     $("propuestasInfo").textContent = "⚠️ Sin sesión de Supabase. Inicia sesión e inténtalo de nuevo.";
     return;
   }
-  const motivo = prompt("Motivo del rechazo (opcional):") || null;
+  abrirModal({
+    titulo: "Rechazar propuesta",
+    cuerpoHTML: `<p style="margin:0 0 8px;color:#475569">¿Rechazar esta propuesta? Puedes anotar el motivo (opcional).</p>
+      <textarea id="propMotivo" rows="3" placeholder="Motivo del rechazo (opcional)"
+        style="width:100%;border:1px solid #d6d3d1;border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical"></textarea>`,
+    acciones: [
+      { texto: "Cancelar" },
+      { texto: "Rechazar", primario: true, onClick: () => {
+          const motivo = (document.getElementById("propMotivo")?.value || "").trim() || null;
+          ejecutarRechazo(id, sess.access_token, motivo);
+        } },
+    ],
+  });
+}
+
+// Rechazo real: cambia el estado vía service_role en la Edge Function (el navegador no
+// puede tocar 'estado' directo).
+async function ejecutarRechazo(id, token, motivo) {
   $("propuestasInfo").textContent = "Rechazando…";
   try {
     const resp = await fetch(EF_CMD_URL, {
       method: "POST",
       headers: {
-        Authorization: "Bearer " + sess.access_token,
+        Authorization: "Bearer " + token,
         apikey: SUPABASE_ANON_KEY,
         "Content-Type": "application/json",
       },
