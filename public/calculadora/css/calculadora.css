@@ -18,3 +18,10 @@ body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif
 
 /* Botón de redondeo activo */
 .calcRedondeoBtn.active { background: #059669; color: #fff; }
+
+/* Alerta: el precio de compra (recibido) supera al P. Lista Nuevo → publicarías bajo
+   costo. El slider "Precio venta" se pinta rojo para que el usuario lo suba. */
+.calc-slider.slider-alerta { background: #fecaca; }
+.calc-slider.slider-alerta::-webkit-slider-thumb { background: #dc2626; }
+.calc-slider.slider-alerta::-moz-range-thumb { background: #dc2626; }
+.calc-slider.slider-alerta::-moz-range-track { background: #fecaca; }

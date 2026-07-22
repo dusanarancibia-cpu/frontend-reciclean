@@ -18,6 +18,13 @@ function recompute() {
   view.renderOutputs(inp, c, state.vigente);
   const cat = view.getSel("calcCategoria");
   view.renderSemaforo(semaforo(inp.mgPct, state.metas.find((m) => m.categoria === cat)));
+  // Regla: el precio de COMPRA recibido no puede superar al P. Lista Nuevo (sería vender
+  // bajo costo). "Recibido" = costo tipeado, o el precio_clp_kg del caso cargado (Capa 1,
+  // compra detectada por Diego). En casos nuevos sin caso (id null) no hay recibido salvo
+  // que se tipee un costo → no se dispara falsamente.
+  const recibido = view.getCompra() ?? (state.caso?.id != null ? Number(state.caso.precio_clp_kg) : null);
+  const rec = (recibido != null && !isNaN(recibido) && recibido > 0) ? recibido : null;
+  view.marcarAlertaCosto(rec != null && rec > c.plista, rec, c.plista);
   return c;
 }
 

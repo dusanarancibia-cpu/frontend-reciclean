@@ -60,6 +60,21 @@ export function renderOutputs(inp, c, vigente) {
   elAct.className = "text-stone-700";
 }
 
+// Alerta de costo: si el precio de compra (recibido) supera el P. Lista Nuevo, pinta el
+// slider "Precio venta" en rojo y muestra un aviso notorio. Se llama en cada recompute().
+export function marcarAlertaCosto(activa, recibido, plista) {
+  const slider = $("calcP");
+  if (slider) slider.classList.toggle("slider-alerta", !!activa);
+  const box = $("calcAlertaCosto");
+  if (!box) return;
+  if (activa) {
+    box.textContent = `⛔ El precio de compra (${clp(recibido)}) es mayor que el P. Lista Nuevo (${clp(plista)}): estarías publicando bajo costo. Sube el “Precio venta”.`;
+    box.classList.remove("hidden");
+  } else {
+    box.classList.add("hidden");
+  }
+}
+
 export function renderSemaforo(s) {
   const box = $("calcSemaforoBox"), lbl = $("calcSemaforo"), det = $("calcSemaforoDetalle");
   box.classList.remove("border-emerald-400", "border-amber-400", "border-rose-400", "bg-emerald-50", "bg-amber-50", "bg-rose-50");
