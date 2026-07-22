@@ -1,11 +1,11 @@
-// MODELO · Acceso a datos (Supabase). Único lugar que habla con la BD/EF.
+// MODELO · Acceso a datos (Supabase) de la Calculadora.
+// El CLIENTE es único y COMPARTIDO con el panel (public/models/supabase.js): así hay una
+// sola instancia y una sola sesión Auth en toda la app (antes cada uno hacía su createClient).
+// En v2 la Calculadora siempre va embebida, por eso puede reusar el cliente del panel.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, EF, DB } from "../config.js";
+import { getClient } from "../../../models/supabase.js";
 
-let _sb = null;
-function sb() {
-  if (!_sb) _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  return _sb;
-}
+const sb = getClient; // getClient() devuelve el singleton compartido (lazy, tras waitSupabase)
 const t = (o) => sb().schema(o.schema).from(o.rel);
 
 export async function getSession() {
