@@ -26,6 +26,14 @@ el build.
 3. Cada push a `main` publica. Si el login fallara por el dominio nuevo, agrégalo en Supabase:
    Auth → URL Configuration.
 
+## Caché de módulos (sin bundler)
+Como el sitio es ESM nativo sin bundler, los `.js` no llevan hash en el nombre. Para que
+tras un deploy el navegador **no mezcle módulos viejos y nuevos**, `vercel.json` sirve todos
+los `*.js` con `Cache-Control: no-cache`: se cachean pero se revalidan con ETag (respuesta
+304 si no cambió). Es la opción más simple que cubre **todo el grafo de imports** (un query
+`?v=` en el entry no se propaga a los sub-imports). El HTML va `no-store` y las vistas se
+piden `no-cache` desde `app.js`.
+
 ## Estructura
 ```
 index.html              → panel (página principal, "/")
