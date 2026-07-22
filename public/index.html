@@ -8,13 +8,22 @@
 
   <!-- Mismo diseño que panel-rdo.html: Tailwind construido + Inter -->
   <link rel="stylesheet" href="/tailwind.css" />
+  <!-- Google Fonts: SIN integrity a propósito. El CSS de fonts.googleapis.com es
+       mutable y varía según el User-Agent (sirve @font-face distintos por navegador),
+       así que un hash SRI fijo rompería en algunos clientes. Riesgo acotado: solo
+       define tipografías. preconnect acelera la carga de los .woff2. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <!-- Estilos de la calculadora (sliders, chips) + estilos del layout modular -->
   <link rel="stylesheet" href="/calculadora/css/calculadora.css" />
   <link rel="stylesheet" href="/css/app.css" />
 
-  <!-- Cliente Supabase global (window.supabase), igual que el panel -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <!-- Cliente Supabase global (window.supabase). Versión FIJADA (no @2 flotante) +
+       SRI: si el CDN sirviera un archivo distinto al esperado, el navegador lo bloquea. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+    integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+    crossorigin="anonymous" defer></script>
 
   <!-- Config GLOBAL del panel modular. Se define acá (no se importa un JS de /public
        por ruta absoluta, que Vite bloquea). El repo es público: la anon key NO es secreto. -->

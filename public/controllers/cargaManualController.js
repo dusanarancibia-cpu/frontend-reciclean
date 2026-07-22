@@ -86,11 +86,15 @@ function parseCSV(text) {
 }
 
 // Carga SheetJS desde CDN solo cuando hace falta leer un .xlsx.
+// Versión FIJA + SRI (integrity/crossorigin): si el CDN devolviera un archivo alterado,
+// el navegador lo rechaza y salta onerror (no ejecuta código no verificado).
 function cargarSheetJS() {
   if (window.XLSX) return Promise.resolve(window.XLSX);
   return new Promise((resolve, reject) => {
     const sc = document.createElement("script");
     sc.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+    sc.integrity = "sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT";
+    sc.crossOrigin = "anonymous";
     sc.onload = () => resolve(window.XLSX);
     sc.onerror = () => reject(new Error("no pude cargar el lector de Excel"));
     document.head.appendChild(sc);

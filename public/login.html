@@ -6,9 +6,18 @@
   <title>Ingresar · Reciclean</title>
   <meta name="theme-color" content="#1A7A3C" />
   <link rel="stylesheet" href="/tailwind.css" />
+  <!-- Google Fonts sin SRI: su CSS es mutable y depende del User-Agent (ver index.html). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <!-- supabase-js con versión FIJA + SRI (igual que index.html). -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+    integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+    crossorigin="anonymous" defer></script>
   <script>
+    // login.html es una página STANDALONE: no importa módulos del panel, así que define
+    // su propia config mínima (URL + anon). La fuente única del panel es el RECICLEAN_CONFIG
+    // de index.html; acá solo se necesita para autenticar (no usa Edge Functions).
     // Repo público: la anon key NO es secreto.
     window.RECICLEAN_CONFIG = {
       SUPABASE_URL: "https://eknmtsrtfkzroxnovfqn.supabase.co",
