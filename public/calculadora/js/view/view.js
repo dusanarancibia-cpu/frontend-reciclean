@@ -53,12 +53,11 @@ export function renderOutputs(inp, c, vigente) {
   $("calcCorte100").textContent = clp(c.plista);
   $("calcCorte80").textContent = clp(c.plista * 0.8);
   $("calcCorte60").textContent = clp(c.plista * 0.6);
-  if (vigente != null) {
-    const d = c.plista - vigente;
-    const el = $("calcDeltaVig");
-    el.textContent = (d >= 0 ? "+" : "") + clp(d);
-    el.className = d >= 0 ? "text-emerald-700" : "text-rose-700";
-  } else { $("calcDeltaVig").textContent = "—"; }
+  // "P. Lista Actual" = precio de venta oficial que hoy está publicado en la web
+  // para este material/sucursal (o "—" si aún no hay uno vigente).
+  const elAct = $("calcDeltaVig");
+  elAct.textContent = vigente != null ? clp(vigente) : "—";
+  elAct.className = "text-stone-700";
 }
 
 export function renderSemaforo(s) {
@@ -101,6 +100,9 @@ export function fillCategorias(metas) {
 export const getSel = (id) => $(id).value;
 export const setSel = (id, v) => { $(id).value = v || ""; };
 export const filtroEnAnalisis = () => $("calcFiltroEnAnalisis").checked;
+// Checkbox "Nuevo caso": modo alta (crear desde cero) vs. caso cargado.
+export const esNuevo = () => $("calcNuevo")?.checked || false;
+export const setNuevo = (v) => { const el = $("calcNuevo"); if (el) el.checked = !!v; };
 
 // Estado / mensajes
 export function chip(email) {
@@ -146,7 +148,8 @@ export function bind(handlers) {
     $(id).addEventListener("change", () => handlers.onSelect(id)));
   $("calcFiltroEnAnalisis").addEventListener("change", handlers.onFiltro);
   $("btnCargar").addEventListener("click", handlers.onCargar);
-  $("btnGuardar").addEventListener("click", handlers.onGuardar);
-  $("btnAprobar").addEventListener("click", handlers.onAprobar);
-  if (handlers.onNuevo) $("btnNuevo")?.addEventListener("click", handlers.onNuevo);
+  // btnGuardar = "← Regresar" · btnAprobar = "Pasar a revisión →"
+  $("btnGuardar").addEventListener("click", handlers.onRegresar);
+  $("btnAprobar").addEventListener("click", handlers.onPasarRevision);
+  if (handlers.onNuevo) $("calcNuevo")?.addEventListener("change", handlers.onNuevo);
 }

@@ -84,21 +84,33 @@ async function pintarMateriales() {
   view.fillSelect("calcMaterial", lista, "material_id", "nombre", "(seleccionar)", "categoria");
 }
 
-async function onGuardar() {
-  if (!state.caso) return view.actMsg("Carga o inicia un caso primero.", "warn");
+// "Pasar a revisión" → NO publica. Deja la propuesta calculada (ruta manual_calc,
+// estado pendiente) para que aparezca en Aprobación Final, donde gerencia publica.
+// Si el material no tiene costo vigente, el "Precio de compra (costo)" se guarda en
+// metadata para que la publicación final pueda usarlo.
+async function onPasarRevision() {
+  // Modo alta: si está marcado "Nuevo caso" pero aún no se inicializó, hacerlo ahora.
+  if (view.esNuevo() && !state.caso) {
+    const mat = view.getSel("calcMaterial"), suc = view.getSel("calcSucursal");
+    if (!mat || !suc) return view.actMsg("Elige material y sucursal para crear el nuevo caso.", "warn");
+    await cargarDesdeVigente(mat, suc);
+  }
+  if (!state.caso) return view.actMsg("Marca “Nuevo caso” o carga un caso por su ID primero.", "warn");
   const sess = await db.getSession();
   if (!sess?.user?.email) return view.actMsg("⚠️ Sin sesión — inicia sesión en el panel.", "warn");
   const c = recompute();
   const inp = view.readInputs(state.modo);
+  const compra = view.getCompra(); // costo transitorio para casos sin precio de compra vigente
   const metadata = {
     ...(state.caso.metadata || {}), pmax: c.pmax, pejec: c.pejec, mg_pct: inp.mgPct,
     flete: inp.fl, spread_pct: inp.spreadPct, volumen_kg: inp.vol, iva_pct: inp.ivaPct,
     editado_por: sess.user.email, origen: "calculadora-mvc",
+    ...(compra ? { precio_compra_transitorio: compra } : {}),
   };
-  view.disable("btnGuardar", true); view.actMsg("Guardando…", "muted");
+  view.disable("btnAprobar", true); view.actMsg("Enviando a Aprobación Final…", "muted");
   try {
     if (state.caso.id == null) {
-      // Propuesta NUEVA (viene de Publicados → Editar): INSERT
+      // Caso NUEVO: INSERT (queda pendiente + ruta manual_calc → Aprobación Final)
       const row = await db.crearBorrador({
         material_id: state.caso.material_id, sucursal_id: state.caso.sucursal_id,
         precio_clp_kg: c.plista, ruta: "manual_calc", confidence_score: 1.0,
@@ -106,41 +118,23 @@ async function onGuardar() {
       });
       state.caso.id = row.id;
       view.setPid(String(row.id));
+      view.setNuevo(false);
       view.renderCapa1(state.caso);
-      view.actMsg("✅ Propuesta nueva creada #" + row.id + " · P.Lista " + c.plista, "ok");
+      view.actMsg("✅ Enviado a Aprobación Final · caso #" + row.id + " · P. Lista Nuevo " + c.plista, "ok");
     } else {
+      // Caso existente (venía de Recibidos/Diego): pasa a la vía calculada.
       await db.guardarBorrador(state.caso.id, { ruta: "manual_calc", precio_clp_kg: c.plista, metadata });
-      view.actMsg("✅ Borrador guardado en la propuesta " + state.caso.id + " · P.Lista " + c.plista, "ok");
+      view.actMsg("✅ Actualizado y en Aprobación Final · caso " + state.caso.id + " · P. Lista Nuevo " + c.plista, "ok");
     }
   } catch (e) {
     view.actMsg("❌ " + e.message + " (si es RLS, el guardado debe ir por Edge Function)", "err");
-  } finally { view.disable("btnGuardar", false); }
+  } finally { view.disable("btnAprobar", false); }
 }
 
-async function onAprobar() {
-  if (!state.caso) return view.actMsg("Carga o inicia un caso primero.", "warn");
-  if (state.caso.id == null) return view.actMsg("Guarda primero (crea la propuesta) y después Aprueba.", "warn");
-  const sess = await db.getSession();
-  if (!sess?.access_token) return view.actMsg("⚠️ Sin sesión de Supabase Auth. Inicia sesión en el panel (mismo navegador) y recarga.", "warn");
-  const c = recompute();
-  const compra = view.getCompra(); // costo transitorio para casos independientes (sin vigente)
-  view.disable("btnAprobar", true); view.actMsg("Aplicando…", "muted");
-  try {
-    const { ok, status, json } = await db.aprobar(state.caso.id, c.plista, sess.access_token, compra);
-    if (ok && json.ok) {
-      view.actMsg("✅ Aplicado. Vigente desde " + (json.vigencia_desde || "—") + " a " + json.precio_venta_clp, "ok");
-      await cargarCaso(state.caso.id);
-    } else if (json.error && /TRIAGE_PISO_MARGEN/.test(json.error)) {
-      view.actMsg("⛔ Margen bajo el piso (" + (json.margen_pct ?? "?") + "% < " + (json.piso_pct ?? "?") + "%). El override se hace en la Bandeja técnica.", "warn");
-    } else if (json.error && /TRIAGE_COSTO_TRANSITORIO/.test(json.error)) {
-      view.actMsg("⛔ Con ese precio de compra el margen queda bajo 20% (" + (json.margen_transitorio_pct != null ? Number(json.margen_transitorio_pct).toFixed(1) + "%" : "?") + "). Baja el precio de compra o sube la venta.", "warn");
-    } else if (json.error && /SIN_COSTO_COMPRA/.test(json.error)) {
-      view.actMsg("⚠️ Este material/sucursal no tiene costo de compra vigente. Escribe el “Precio de compra (costo)” arriba y vuelve a aprobar.", "warn");
-    } else {
-      view.actMsg("❌ " + (json.error || ("HTTP " + status)), "err");
-    }
-  } catch (e) { view.actMsg("❌ " + (e.message || e), "err"); }
-  finally { view.disable("btnAprobar", false); }
+// "← Regresar" → vuelve a Recibidos (paso previo natural). El router del panel
+// escucha el cambio de hash y carga la vista.
+function onRegresar() {
+  window.location.hash = "#recibidos";
 }
 
 export async function init() {
@@ -149,11 +143,21 @@ export async function init() {
     onRedondeo: (m) => { state.modo = m; view.activarRedondeo(m); recompute(); },
     onSelect, onFiltro,
     onCargar: () => { const id = view.getPid(); if (id) cargarCaso(id); },
-    onGuardar, onAprobar,
-    // Nuevo caso: parte de cero con el material/sucursal elegidos en los selects.
+    onPasarRevision, onRegresar,
+    // Checkbox "Nuevo caso": marcado → parte de cero con el material/sucursal elegidos;
+    // desmarcado → limpia el caso para volver a elegir o cargar por ID.
     onNuevo: () => {
+      if (!view.esNuevo()) {
+        state.caso = null; state.vigente = null; view.setPid("");
+        view.loadMsg("Marca “Nuevo caso” o carga un caso por su ID.", "muted");
+        recompute();
+        return;
+      }
       const mat = view.getSel("calcMaterial"), suc = view.getSel("calcSucursal");
-      if (!mat || !suc) return view.actMsg("Elige material y sucursal para crear el nuevo caso.", "warn");
+      if (!mat || !suc) {
+        view.setNuevo(false);
+        return view.actMsg("Elige material y sucursal para crear el nuevo caso.", "warn");
+      }
       view.setPid("");
       cargarDesdeVigente(mat, suc);
     },

@@ -4,7 +4,7 @@
   <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
     <div>
       <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>🧮</span><span>Calculadora soporte de decisión</span></h2>
-      <p class="text-sm text-stone-500 mt-1">Calcula el precio con margen, IVA y flete. <b>Guardar</b> lo manda a Revisión; <b>Aprobar</b> publica el precio oficial.</p>
+      <p class="text-sm text-stone-500 mt-1">Ajusta el precio con margen, IVA y flete. Cuando esté listo, usa <b>Pasar a revisión</b> para enviarlo a Aprobación Final (no se publica de un solo clic).</p>
     </div>
     <span id="chip" class="chip off">sin sesión</span>
   </header>
@@ -45,8 +45,10 @@
     </div>
   </div>
   <div class="flex flex-wrap items-center gap-2 mb-3">
-    <button id="btnNuevo" class="bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded text-sm font-medium">➕ Nuevo caso</button>
-    <span class="text-xs text-stone-500" id="calcHistorialInfo">Elige material y sucursal, o carga un caso por su ID.</span>
+    <label class="inline-flex items-center gap-2 text-sm font-medium text-stone-700 bg-sky-50 border border-sky-200 rounded px-3 py-1.5 cursor-pointer select-none">
+      <input type="checkbox" id="calcNuevo" class="accent-sky-700"> Nuevo caso
+    </label>
+    <span class="text-xs text-stone-500" id="calcHistorialInfo">Marca “Nuevo caso” para crear uno desde cero, o carga un caso por su ID.</span>
   </div>
 
   <!-- Precio de compra (costo interno). Solo se necesita para publicar un material/sucursal
@@ -103,7 +105,7 @@
 
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
     <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P.Max</div><div class="text-2xl font-bold text-stone-800 mt-1" id="calcPmax">—</div><div class="text-xs text-stone-500">máx pagable</div></div>
-    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P.Lista</div><div class="text-2xl font-bold text-emerald-700 mt-1" id="calcPlista">—</div><div class="text-xs text-stone-500">precio oficial</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P. Lista Nuevo</div><div class="text-2xl font-bold text-emerald-700 mt-1" id="calcPlista">—</div><div class="text-xs text-stone-500">precio propuesto</div></div>
     <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P.Ejec</div><div class="text-2xl font-bold text-sky-700 mt-1" id="calcPejec">—</div><div class="text-xs text-stone-500">negociable</div></div>
     <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">IVA Farex</div><div class="text-2xl font-bold text-stone-700 mt-1" id="calcIvaAmt">—</div><div class="text-xs text-stone-500">retención/kg</div></div>
   </div>
@@ -114,18 +116,18 @@
   </div>
 
   <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4">
-    <div class="text-xs text-stone-500 uppercase tracking-wider mb-2">Líneas de corte P&amp;L (sobre P.Lista)</div>
+    <div class="text-xs text-stone-500 uppercase tracking-wider mb-2">Líneas de corte P&amp;L (sobre P. Lista Nuevo)</div>
     <div class="flex flex-wrap gap-3 text-sm">
-      <span>P.Lista: <strong id="calcCorte100">—</strong></span>
+      <span>P. Lista Nuevo: <strong id="calcCorte100">—</strong></span>
       <span class="text-amber-700">−20%: <strong id="calcCorte80">—</strong></span>
       <span class="text-rose-700">−40%: <strong id="calcCorte60">—</strong></span>
-      <span class="ml-auto text-stone-500">Delta vs vigente: <strong id="calcDeltaVig">—</strong></span>
+      <span class="ml-auto text-stone-500">P. Lista Actual: <strong id="calcDeltaVig">—</strong></span>
     </div>
   </div>
 
   <div class="flex flex-wrap items-center gap-3">
-    <button id="btnGuardar" class="bg-white border border-stone-300 text-stone-700 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">💾 Guardar Borrador</button>
-    <button id="btnAprobar" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-50">✅ Aprobar y Publicar</button>
+    <button id="btnGuardar" class="bg-white border border-stone-300 text-stone-700 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">← Regresar</button>
+    <button id="btnAprobar" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-50">Pasar a revisión →</button>
     <span id="actMsg" class="text-xs text-stone-500"></span>
   </div>
 </section>

@@ -14,8 +14,8 @@ export const MENU = [
     { ico: "📝", label: "Carga manual", route: "carga-manual", ready: true },
     { ico: "📥", label: "Recibidos",   route: "recibidos",   ready: true },
     { ico: "🧮", label: "Calculadora", route: "calculadora", ready: true },
-    { ico: "💡", label: "Propuestas",  route: "propuestas",  ready: true },
-    { ico: "✅", label: "Revisión",    route: "revision",    ready: true },
+    { ico: "💡", label: "Propuestas IA",   route: "propuestas",  ready: true },
+    { ico: "✅", label: "Aprobación Final", route: "revision",    ready: true },
     { ico: "🌐", label: "Publicados",  route: "publicados",  ready: true },
   ]},
 ];

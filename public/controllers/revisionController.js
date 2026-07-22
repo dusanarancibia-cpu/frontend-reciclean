@@ -31,12 +31,14 @@ function refrescarSeleccion() {
   }
 }
 
-// Aprueba UNA propuesta contra la EF autoritativa
-async function aprobarUno(id, token) {
+// Aprueba UNA propuesta contra la EF autoritativa.
+// compra = costo transitorio (metadata.precio_compra_transitorio) para materiales sin
+// costo vigente; la EF lo ignora si ya hay costo. Así se publican casos independientes.
+async function aprobarUno(id, token, compra) {
   const resp = await fetch(EF_URL, {
     method: "POST",
     headers: { Authorization: "Bearer " + token, apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ propuesta_id: Number(id) }),
+    body: JSON.stringify({ propuesta_id: Number(id), ...(compra > 0 ? { precio_compra_transitorio: compra } : {}) }),
   });
   const raw = await resp.text();
   let json = {}; try { json = raw ? JSON.parse(raw) : {}; } catch { json = { raw }; }
@@ -57,7 +59,9 @@ async function onConfirmar() {
   for (const id of ids) {
     $("revisionInfo").textContent = `Aprobando ${ok + fail + 1}/${ids.length}…`;
     try {
-      const r = await aprobarUno(id, sess.access_token);
+      const row = _rowsRev.find((x) => String(x.id) === String(id));
+      const compra = row?.metadata?.precio_compra_transitorio || null;
+      const r = await aprobarUno(id, sess.access_token, compra);
       if (r.ok) { ok++; aprobados.push(String(id)); } else fail++;
     } catch { fail++; }
   }
@@ -76,16 +80,28 @@ export async function mountRevision() {
 
   try {
     const sb = getClient();
-    const [{ data, error }, nombres] = await Promise.all([
+    const [{ data, error }, nombres, vigRes] = await Promise.all([
       sb.schema("staging").from("precios_propuestos")
         .select("id, material_id, sucursal_id, precio_clp_kg, desviacion_pct, ruta, estado, created_at, metadata")
         .eq("estado", "pendiente").eq("ruta", "manual_calc")
         .order("created_at", { ascending: false })
         .limit(500),
       loadNombres(),
+      // Precios oficiales hoy publicados (para la columna "P. Lista Actual").
+      sb.schema("curated").from("vw_materiales_sucursal_precios_vigente")
+        .select("material_id, sucursal_id, precio_venta_clp").limit(2000),
     ]);
     if (error) throw error;
     _rowsRev = data || [];
+
+    // Mapa material|sucursal → precio de venta vigente (el que está publicado ahora).
+    const vigMap = new Map();
+    (vigRes?.data || []).forEach((v) =>
+      vigMap.set(`${v.material_id}|${v.sucursal_id}`, Number(v.precio_venta_clp)));
+    const precioActual = (r) => {
+      const v = vigMap.get(`${r.material_id}|${r.sucursal_id}`);
+      return v == null || isNaN(v) ? null : v;
+    };
 
     // Modal "ver detalle": arma el precio completo (usa metadata de la propuesta).
     function verDetalle(id) {
@@ -97,7 +113,8 @@ export async function mountRevision() {
       const cuerpo =
         filaDet("Material", esc(nombres.material(r.material_id))) +
         filaDet("Sucursal", esc(nombres.sucursal(r.sucursal_id))) +
-        filaDet("P. Lista (oficial)", clp(r.precio_clp_kg)) +
+        filaDet("P. Lista Nuevo", clp(r.precio_clp_kg)) +
+        filaDet("P. Lista Actual", clp(precioActual(r))) +
         filaDet("P. Ejecutivo", clp(m.pejec)) +
         filaDet("P. Máximo", clp(m.pmax)) +
         filaDet("Margen objetivo", pct(m.mg_pct)) +
@@ -118,16 +135,16 @@ export async function mountRevision() {
     }
 
     const renderRow = (r) => {
-      const d = r.desviacion_pct == null ? `<span class="text-stone-400">—</span>`
-        : (Number(r.desviacion_pct) >= 0
-          ? `<span class="text-emerald-700">+${Number(r.desviacion_pct).toFixed(1)}%</span>`
-          : `<span class="text-rose-700">${Number(r.desviacion_pct).toFixed(1)}%</span>`);
+      const act = precioActual(r);
+      const actHtml = act == null
+        ? `<span class="text-stone-400">— sin publicar</span>`
+        : `<span class="text-stone-700">${clp(act)}</span>`;
       return `<tr class="hover:bg-stone-50">
         <td class="px-4 py-2.5"><input type="checkbox" class="revChk" data-id="${r.id}"></td>
         <td class="px-4 py-2.5 font-medium text-stone-800">${esc(nombres.material(r.material_id))}</td>
         <td class="px-4 py-2.5 text-stone-600">${esc(nombres.sucursal(r.sucursal_id))}</td>
         <td class="px-4 py-2.5 text-right font-semibold text-emerald-700">${clp(r.precio_clp_kg)}</td>
-        <td class="px-4 py-2.5 text-right">${d}</td>
+        <td class="px-4 py-2.5 text-right">${actHtml}</td>
         <td class="px-4 py-2.5 text-right">
           <button type="button" class="revVer text-emerald-700 text-xs font-medium hover:underline" data-id="${r.id}" style="background:none;border:0;cursor:pointer">ver</button>
         </td>
@@ -142,7 +159,7 @@ export async function mountRevision() {
         material: (r) => nombres.material(r.material_id),
         sucursal: (r) => nombres.sucursal(r.sucursal_id),
         precio_clp_kg: (r) => Number(r.precio_clp_kg),
-        desviacion_pct: (r) => (r.desviacion_pct == null ? -Infinity : Number(r.desviacion_pct)),
+        precio_actual: (r) => { const v = precioActual(r); return v == null ? -Infinity : v; },
       },
       // Tras cada render (orden/paginación/aprobación) se re-cablean los checkboxes de la página.
       onRender: () => {
