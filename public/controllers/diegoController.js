@@ -8,6 +8,7 @@
 // mientras el backend no se toca. Cuando la EF adopte imagenBase64, sobran.
 import { SUPABASE_URL, EF } from "../js/config.js";
 import { getClient, getSession } from "../models/supabase.js";
+import { escapeHTML } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
 const BUCKET = "diego-chat-files";
@@ -93,9 +94,9 @@ function pushMio(texto, dataUrl, nombre) {
   const el = document.createElement("div");
   el.className = "diego-msg mine";
   el.innerHTML =
-    (dataUrl ? `<img src="${dataUrl}" alt="${nombre || ""}" style="max-width:180px;border-radius:10px;display:block;margin-bottom:4px;" />` : "") +
-    (texto ? `<div>${texto.replace(/</g, "&lt;")}</div>` : "") +
-    (dataUrl && !texto ? `<div class="diego-msg-attach">📎 ${nombre || "imagen"}</div>` : "");
+    (dataUrl ? `<img src="${dataUrl}" alt="${esc(nombre || "")}" style="max-width:180px;border-radius:10px;display:block;margin-bottom:4px;" />` : "") +
+    (texto ? `<div>${esc(texto)}</div>` : "") +
+    (dataUrl && !texto ? `<div class="diego-msg-attach">📎 ${esc(nombre || "imagen")}</div>` : "");
   body.appendChild(el);
   body.scrollTop = body.scrollHeight;
 }
@@ -110,7 +111,7 @@ function accionCalculadora(proposalId) {
       text-decoration:none;">Abrir en Calculadora →</a>`;
 }
 
-const esc = (s) => String(s ?? "").replace(/</g, "&lt;");
+const esc = escapeHTML; // helper único (cubre < > & " '), reemplaza el escapador débil local
 const clp = (n) => (n == null || isNaN(Number(n))) ? "—" : "$" + Number(n).toLocaleString("es-CL");
 // "$9.480" / "9.480" / "1.300" → 9480 / 1300 (formato chileno: punto = miles).
 const parsePrecio = (s) => {

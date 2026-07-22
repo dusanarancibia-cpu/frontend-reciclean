@@ -3,11 +3,13 @@
 // Hidratamos nombres con loadNombres() (materiales + sucursales) y mostramos Editar/Borrar.
 import { getClient, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
+import { escapeHTML } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
 const fecha = (d) => (d ? String(d).slice(0, 10) : "—");
-const esc = (s) => String(s ?? "").replace(/</g, "&lt;");
+// helper único (cubre < > & " '): importante en los contextos de atributo data-mat/data-suc
+const esc = escapeHTML;
 const fila = (cols, txt) => `<tr><td colspan="${cols}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
 
 export async function mountPublicados() {

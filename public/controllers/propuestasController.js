@@ -10,10 +10,11 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, EF } from "../js/config.js";
 import { getClient, getSession, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
+import { escapeHTML } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
-const esc = (s) => String(s ?? "").replace(/</g, "&lt;");
+const esc = escapeHTML; // helper único (cubre < > & " '); solo para innerHTML, no para textContent
 const fila = (cols, txt) => `<tr><td colspan="${cols}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
 const EF_CMD_URL = SUPABASE_URL + (EF.precioCommand || "/functions/v1/precio-command");
 
@@ -49,7 +50,8 @@ async function onAceptar(id) {
     .schema("staging").from("precios_propuestos")
     .update({ ruta: "manual_calc" }).eq("id", Number(id));
   if (error) {
-    $("propuestasInfo").textContent = "❌ No pude aceptar: " + esc(error.message) +
+    // textContent ya escapa: no usar esc() aquí (mostraría entidades como &amp;).
+    $("propuestasInfo").textContent = "❌ No pude aceptar: " + error.message +
       " (¿sesión iniciada?)";
     return;
   }
@@ -78,13 +80,13 @@ async function onRechazar(id) {
     const raw = await resp.text();
     let js = {}; try { js = raw ? JSON.parse(raw) : {}; } catch { js = { raw }; }
     if (!resp.ok || js.ok === false) {
-      $("propuestasInfo").textContent = "❌ No pude rechazar: " + esc(js.error || resp.status);
+      $("propuestasInfo").textContent = "❌ No pude rechazar: " + (js.error || resp.status);
       return;
     }
     quitarFila(id);
     $("propuestasInfo").textContent = "🗑️ Propuesta rechazada.";
   } catch (e) {
-    $("propuestasInfo").textContent = "❌ Error de red al rechazar: " + esc(e.message);
+    $("propuestasInfo").textContent = "❌ Error de red al rechazar: " + e.message;
   }
 }
 

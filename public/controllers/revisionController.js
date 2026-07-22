@@ -5,13 +5,14 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, EF } from "../js/config.js";
 import { getClient, getSession, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { abrirModal } from "../components/modal.js";
+import { escapeHTML } from "../js/util.js";
 
 let _apiRev = null;   // handle de la tabla (para re-render tras aprobar)
 let _rowsRev = [];    // filas pendientes en memoria
 
 const $ = (id) => document.getElementById(id);
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
-const esc = (s) => String(s ?? "").replace(/</g, "&lt;");
+const esc = escapeHTML; // helper único (cubre < > & " ')
 const fila = (cols, txt) => `<tr><td colspan="${cols}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
 const EF_URL = SUPABASE_URL + (EF.precioAplicar || "/functions/v1/precio-aplicar");
 // Una fila del modal de detalle (etiqueta a la izquierda, valor a la derecha).

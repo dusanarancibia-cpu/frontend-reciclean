@@ -3,10 +3,11 @@
 // Nombres de material/sucursal vía loadNombres() (join id text → nombre).
 import { getClient, loadNombres } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
+import { escapeHTML } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
-const esc = (s) => String(s ?? "").replace(/</g, "&lt;");
+const esc = escapeHTML; // helper único (cubre < > & " ')
 const fila = (cols, txt) => `<tr><td colspan="${cols}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
 
 // Fecha/hora exacta en horario de Chile continental → "22 Jul 2026, 14:30".

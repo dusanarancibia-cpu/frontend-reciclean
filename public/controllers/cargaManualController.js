@@ -3,9 +3,10 @@
 // Escribe en staging.precios_propuestos respetando las FK (ruta='andrea', estado='pendiente').
 // El archivo se empareja POR NOMBRE de material y sucursal contra el catálogo.
 import { getClient, getSession } from "../models/supabase.js";
+import { escapeHTML } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const esc = escapeHTML; // helper único (cubre < > & " '); usado en los <option> y filas (innerHTML)
 const INP = "border border-stone-300 rounded px-2 py-1.5 text-sm bg-white";
 // Normaliza texto para comparar/emparejar (minúsculas, sin acentos, espacios colapsados).
 const normId = (s) => String(s ?? "").toLowerCase().normalize("NFD")
@@ -155,7 +156,7 @@ async function onImportar(file) {
     if (!objetos.length) { $("cmInfo").textContent = "El archivo no tiene filas de datos."; return; }
     volcarImportadas(objetos);
   } catch (e) {
-    $("cmInfo").textContent = "❌ No pude leer el archivo: " + esc(e.message) + " (si es Excel, prueba guardarlo como CSV).";
+    $("cmInfo").textContent = "❌ No pude leer el archivo: " + e.message + " (si es Excel, prueba guardarlo como CSV).";
   }
 }
 
@@ -200,7 +201,7 @@ async function onEnviar() {
   $("cmInfo").textContent = `Enviando ${payloads.length} precio(s)…`;
   const { error } = await getClient().schema("staging").from("precios_propuestos").insert(payloads);
   $("cmEnviar").disabled = false;
-  if (error) { $("cmInfo").textContent = "❌ No pude cargar: " + esc(error.message) + " (¿sesión iniciada?)"; return; }
+  if (error) { $("cmInfo").textContent = "❌ No pude cargar: " + error.message + " (¿sesión iniciada?)"; return; }
   $("cmBody").innerHTML = ""; agregarFila();
   $("cmInfo").textContent = `✅ ${payloads.length} precio(s) enviado(s) a Recibidos.`;
 }
