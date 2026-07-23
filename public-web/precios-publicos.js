@@ -38,7 +38,7 @@
   // Reemplazar por la anon key del proyecto (es pública; se puede versionar).
   var ANON_KEY = "PEGAR_AQUI_LA_ANON_KEY";
 
-  var COLUMNAS = "material_id,material,grupo,grupo_orden,empresa_id,empresa," +
+  var COLUMNAS = "material_id,material,grupo,grupo_orden,orden,empresa_id,empresa," +
                  "sucursal_id,sucursal,precio,unidad,actualizado";
 
   function cabeceras() {
@@ -68,7 +68,10 @@
    */
   function obtener(opc) {
     opc = opc || {};
-    var q = "precios_publicos?select=" + COLUMNAS + "&order=grupo_orden.asc,material.asc";
+    // Orden: primero el grupo (cobre, bronce, …), dentro del grupo la secuencia de la lista
+    // en papel (orden), y como desempate el nombre.
+    var q = "precios_publicos?select=" + COLUMNAS +
+            "&order=grupo_orden.asc,orden.asc,material.asc";
     if (opc.empresa)  q += "&empresa_id=eq." + encodeURIComponent(opc.empresa);
     if (opc.sucursal) q += "&sucursal_id=eq." + encodeURIComponent(opc.sucursal);
     if (opc.grupo)    q += "&grupo=eq." + encodeURIComponent(opc.grupo);

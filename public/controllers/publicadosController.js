@@ -59,7 +59,8 @@ export async function mountPublicados() {
       tbody: body, thead: $("publicadosHead"), info: $("publicadosInfo"), pager: $("publicadosPager"),
       rows: visibles(), renderRow, colspan: totalColumnas(), pageSize: 25,
       vacio: "Sin materiales que coincidan.",
-      sortInicial: { key: "material", dir: "asc" },
+      // Orden por defecto = el de la lista en papel (cobre → bronce → aluminio → …).
+      sortInicial: { key: "orden", dir: "asc" },
       sorters: sorters(),
       infoText: (t, p, pg) => `${t} material(es) · página ${p} de ${pg}.`,
       onRender: cablearChecks,
@@ -97,7 +98,8 @@ function fusionar(precios, vitrina) {
       material_id: v.material_id,
       material: v.material,
       visible: v.visible || {},
-      precios: {},           // sucursal_id → { precio, vigencia, requiere_revision }
+      orden: v.orden ?? 9999,   // orden de la lista en papel
+      precios: {},              // sucursal_id → { precio, vigencia, requiere_revision }
       revisar: false,
     });
   });
@@ -107,7 +109,7 @@ function fusionar(precios, vitrina) {
     if (!f) {
       // Precio de un material que no está en el catálogo público: se muestra igual, para
       // que no quede invisible en el panel.
-      f = { material_id: p.material_id, material: p.material, visible: {}, precios: {}, revisar: false };
+      f = { material_id: p.material_id, material: p.material, visible: {}, orden: 9999, precios: {}, revisar: false };
       porMaterial.set(p.material_id, f);
     }
     f.precios[p.sucursal_id] = {
@@ -118,7 +120,11 @@ function fusionar(precios, vitrina) {
     if (p.requiere_revision) f.revisar = true;
   });
 
-  return [...porMaterial.values()];
+  // Publicados es la pantalla de lo que SE PUBLICA: solo materiales con al menos un precio
+  // vigente. Los materiales sin precio (inactivos para publicar) confundían con filas de
+  // puros guiones; esos se gestionan en el Catálogo, no acá.
+  return [...porMaterial.values()]
+    .filter((f) => Object.values(f.precios).some((p) => p?.precio != null));
 }
 
 // ── Cabecera dinámica ─────────────────────────────────────────────────────────
@@ -138,8 +144,13 @@ function pintarCabecera() {
 }
 
 // El orden acepta cualquier columna, incluidas las que se generan en runtime.
+// "orden" es el de la lista en papel por planta (categorías cobre → bronce → aluminio → …);
+// es el orden por defecto porque así lee gerencia. Al hacer clic en una columna se reordena.
 function sorters() {
-  const s = { material: (r) => r.material || "" };
+  const s = {
+    orden:    (r) => r.orden,
+    material: (r) => r.material || "",
+  };
   _sucursales.forEach((x) => {
     s["suc_" + x.sucursal_id] = (r) => Number(r.precios[x.sucursal_id]?.precio ?? -1);
   });
@@ -319,11 +330,12 @@ function cablearReinicio() {
 function actualizarResumen() {
   const el = $("publicadosResumen");
   if (!el) return;
+  // _filas ya viene filtrada a materiales con precio vigente (los que se pueden publicar).
   const cuenta = (id) => _filas.filter((r) => r.visible[id]).length;
-  const conPrecio = _filas.filter((r) => Object.values(r.precios).some((p) => p?.precio != null)).length;
   el.textContent =
+    `${_filas.length} material(es) con precio vigente. ` +
     `En la web: ${cuenta("farex")} en FAREX · ${cuenta("reciclean_spa")} en Reciclean. ` +
-    `${conPrecio} de ${_filas.length} materiales tienen precio vigente.`;
+    `Los materiales sin precio se gestionan en el Catálogo.`;
 }
 
 function pintarRol() {
