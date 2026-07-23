@@ -9,6 +9,7 @@
 import { SUPABASE_URL, EF } from "../js/config.js";
 import { getClient, getSession } from "../models/supabase.js";
 import { escapeHTML } from "../js/util.js";
+import { dejarParaCargaManual } from "../js/traspaso.js";
 
 const $ = (id) => document.getElementById(id);
 const BUCKET = "diego-chat-files";
@@ -59,21 +60,21 @@ function wireCargarBtn(b) {
   b.addEventListener("click", () => {
     let items = []; try { items = JSON.parse(b.dataset.items || "[]"); } catch { items = []; }
     if (!items.length) return;
-    b.disabled = true; b.textContent = "Cargando…";
-    cargarListaDirecto(items, b.dataset.sucursal || "");
-  });
-}
-function wireSucBtn(b) {
-  if (!b || b._wired) return; b._wired = true;
-  b.addEventListener("click", () => {
-    let items = []; try { items = JSON.parse(b.dataset.items || "[]"); } catch { items = []; }
-    b.closest(".diego-msg")?.remove();
-    cargarListaDirecto(items, b.dataset.suc);
+    revisarEnCargaManual(items);
   });
 }
 function recablearBotones() {
   $("diegoChatBody")?.querySelectorAll(".diego-cargar-btn").forEach(wireCargarBtn);
-  $("diegoChatBody")?.querySelectorAll(".diego-suc-btn").forEach(wireSucBtn);
+}
+
+// Lo leído por OCR NO se guarda: se deja en el buzón de traspaso y se manda al usuario
+// a Carga Manual para que lo revise con los ojos antes de que toque la base. Así una
+// lectura equivocada de la IA nunca llega sola a producción.
+function revisarEnCargaManual(items) {
+  dejarParaCargaManual(items, "ocr_diego");
+  const panel = $("diegoPanel");
+  if (panel) panel.classList.remove("open");   // cierra el widget para dejar ver la tabla
+  window.location.hash = "#carga-manual";
 }
 
 // ─── Render ────────────────────────────────────────────────────────────
@@ -128,17 +129,6 @@ function itemsDesdeDatos(datos) {
   })).filter((x) => x.material && isFinite(x.precio_clp_kg));
 }
 
-// Detecta la sucursal desde el texto de la respuesta (encabezado "Sucursal: MAIPÚ").
-function sucursalDesdeTexto(text) {
-  const t = String(text || "");
-  const m = t.match(/sucursal\s*\**\s*:?\s*\**\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)/i);
-  if (m && m[1]) return m[1];
-  for (const k of ["Cerrillos", "Maipú", "Maipu", "Talca", "Puerto Montt"]) {
-    if (new RegExp(k, "i").test(t)) return k;
-  }
-  return "";
-}
-
 // Tabla desde el array estructurado datos_extraidos (Material / Precio)
 function tablaPrecios(datos) {
   if (!Array.isArray(datos) || !datos.length) return "";
@@ -190,90 +180,26 @@ function pushRespuesta(reply, proposalId, datos) {
     const md = tablaDesdeMarkdown(texto);
     if (md) { tabla = md.html; texto = md.rest || "Estos son los precios que leí:"; items = md.items || []; }
   }
-  const sucursal = sucursalDesdeTexto(reply);
-  // Botón determinístico: carga directa a Recibidos sin depender del modelo.
+  // Botón determinístico (no depende del modelo). Ya NO guarda: lleva lo leído a
+  // Carga Manual para que una persona lo valide antes de que entre a la base.
   const btnCargar = items.length
-    ? `<button type="button" class="diego-cargar-btn" style="display:inline-block;margin-top:8px;margin-right:6px;background:#0369a1;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Cargar ${items.length} precios a Recibidos</button>`
+    ? `<button type="button" class="diego-cargar-btn" style="display:inline-block;margin-top:8px;margin-right:6px;background:#0369a1;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📝 Revisar ${items.length} precios en Carga Manual</button>`
     : "";
   el.innerHTML = `<div>${esc(texto)}</div>${tabla}${btnCargar}${accionCalculadora(proposalId)}`;
   body.appendChild(el);
   body.scrollTop = body.scrollHeight;
   if (items.length) {
     const b = el.querySelector(".diego-cargar-btn");
-    if (b) { b.dataset.items = JSON.stringify(items); b.dataset.sucursal = sucursal || ""; wireCargarBtn(b); }
+    if (b) { b.dataset.items = JSON.stringify(items); wireCargarBtn(b); }
   }
 }
 
-// Carga DIRECTA a Recibidos (sin LLM): pega a la EF con accion=cargar_lista_precios_directo.
-async function cargarListaDirecto(items, sucursal) {
-  const sess = await getSession().catch(() => null);
-  const email = sess?.user?.email;
-  const token = sess?.access_token;
-  if (!email || !token) {
-    pushMsg("⚠️ Para cargar los precios necesitas iniciar sesión en el panel.");
-    return;
-  }
-  const estado = pushMsg("Cargando precios a Recibidos… ⏳");
-  try {
-    const resp = await fetch(EF_URL, {
-      method: "POST",
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        accion: "cargar_lista_precios_directo",
-        sucursal: sucursal || undefined,
-        items,
-        user_email: email,
-        request_id: crypto.randomUUID(),
-      }),
-    });
-    const json = await resp.json().catch(() => ({}));
-    estado.remove();
-    if (!resp.ok) {
-      pushMsg("❌ No pude cargar los precios (" + (json.error || ("HTTP " + resp.status)) + ").");
-      return;
-    }
-    if (json.necesita_sucursal) { pedirSucursal(items); return; }
-    renderResultadoCarga(json);
-  } catch (err) {
-    estado.remove();
-    pushMsg("❌ Error de red al cargar: " + (err?.message || ""));
-  }
-}
-
-// Si no se pudo deducir la sucursal, se la pide con 4 botones.
-function pedirSucursal(items) {
-  const body = $("diegoChatBody");
-  const el = document.createElement("div");
-  el.className = "diego-msg theirs";
-  const itemsJson = JSON.stringify(items).replace(/"/g, "&quot;");
-  el.innerHTML = `<div>¿A qué sucursal corresponde esta lista?</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">` +
-    ["Cerrillos", "Maipú", "Talca", "Puerto Montt"].map((s) =>
-      `<button type="button" class="diego-suc-btn" data-suc="${s}" data-items="${itemsJson}" style="background:#059669;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">${s}</button>`
-    ).join("") + `</div>`;
-  body.appendChild(el);
-  body.scrollTop = body.scrollHeight;
-  el.querySelectorAll(".diego-suc-btn").forEach(wireSucBtn);
-}
-
-function renderResultadoCarga(json) {
-  const body = $("diegoChatBody");
-  const el = document.createElement("div");
-  el.className = "diego-msg theirs";
-  const dudosos = Array.isArray(json.dudosos) ? json.dudosos : [];
-  let extra = "";
-  if (dudosos.length) {
-    const filas = dudosos.map((d) =>
-      `<li>${esc(d.material)} — ${esc(d.motivo || "revisar")}</li>`).join("");
-    extra = `<div style="margin-top:8px;font-size:12px;color:#92400e"><b>Para revisar (no cargados):</b>
-      <ul style="margin:4px 0 0 16px">${filas}</ul></div>`;
-  }
-  el.innerHTML = `<div>✅ ${esc(json.reply || "Precios cargados.")}</div>${extra}
-    <a href="/?vista=recibidos" style="display:inline-block;margin-top:8px;background:#059669;
-      color:#fff;padding:7px 12px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none">Ver en Recibidos →</a>`;
-  body.appendChild(el);
-  body.scrollTop = body.scrollHeight;
-}
+// NOTA · Aquí vivían cargarListaDirecto(), pedirSucursal() y renderResultadoCarga(), que
+// escribían la lectura del OCR directo en staging.precios_propuestos vía la Edge Function
+// `cargar_lista_precios_directo`. Se eliminaron por dos reglas de negocio nuevas:
+//   1. lo que lee la IA debe pasar por revisión humana antes de tocar la base;
+//   2. la sucursal ya no se deduce del origen, la asigna gerencia en la Calculadora.
+// La Edge Function NO se tocó: sigue disponible para el canal de WhatsApp.
 
 // ─── Adjuntar (staging: se guarda, se envía al Enviar) ─────────────────
 function leerDataUrl(file) {

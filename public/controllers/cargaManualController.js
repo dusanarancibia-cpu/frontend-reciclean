@@ -1,29 +1,33 @@
-// CONTROLADOR · Carga manual. Tabla editable (fluida, sin scroll horizontal) para
-// cargar varios precios a mano o desde un archivo CSV/Excel, y mandarlos a Recibidos.
-// Escribe en staging.precios_propuestos respetando las FK (ruta='andrea', estado='pendiente').
-// El archivo se empareja POR NOMBRE de material y sucursal contra el catálogo.
+// CONTROLADOR · Carga manual. Primera etapa del flujo: aquí caen los datos en crudo,
+// se revisan a ojo y recién entonces se guardan.
+//
+// Tres orígenes, un solo camino de revisión:
+//   1. a mano, fila por fila
+//   2. archivo CSV/Excel (SheetJS con SRI, se carga solo si hace falta)
+//   3. OCR de Diego → llega por el buzón de traspaso, SIN haber tocado la base
+//
+// Solo se piden Material, Precio Venta (lo que nos paga la fundición) y Vigencia:
+// la sucursal y el precio público los asigna gerencia después, en la Calculadora.
 import { getClient, getSession } from "../models/supabase.js";
+import { cargarFilas, pasarAPendiente, listarBorradores } from "../models/flujoRepo.js";
 import { escapeHTML } from "../js/util.js";
+import { tomarParaCargaManual } from "../js/traspaso.js";
 
 const $ = (id) => document.getElementById(id);
-const esc = escapeHTML; // helper único (cubre < > & " '); usado en los <option> y filas (innerHTML)
+const esc = escapeHTML;
 const INP = "border border-stone-300 rounded px-2 py-1.5 text-sm bg-white";
-// Normaliza texto para comparar/emparejar (minúsculas, sin acentos, espacios colapsados).
+// Normaliza texto para emparejar (minúsculas, sin acentos, espacios colapsados).
 const normId = (s) => String(s ?? "").toLowerCase().normalize("NFD")
   .replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 
-let _optMat = "";           // <option> de materiales
-let _optSuc = "";           // <option> de sucursales
-let _matByName = new Map(); // nombre normalizado -> material_id
-let _sucByName = new Map(); // nombre normalizado -> sucursal_id
+let _optMat = "";
+let _matByName = new Map();
 let _email = null;
 
 function filaHTML() {
   return `<tr class="cmRow hover:bg-stone-50">
     <td class="px-3 py-2"><select class="cmMat ${INP}" style="width:100%"><option value="">— material —</option>${_optMat}</select></td>
-    <td class="px-3 py-2"><select class="cmSuc ${INP}" style="width:100%"><option value="">— sucursal —</option>${_optSuc}</select></td>
-    <td class="px-3 py-2"><input type="number" class="cmCompra ${INP}" style="width:100%;text-align:right" min="0" step="1" placeholder="0"></td>
-    <td class="px-3 py-2"><input type="number" class="cmVenta ${INP}" style="width:100%;text-align:right" min="0" step="1" placeholder="0"></td>
+    <td class="px-3 py-2"><input type="number" class="cmPrecio ${INP}" style="width:100%;text-align:right" min="0" step="1" placeholder="0"></td>
     <td class="px-3 py-2"><input type="date" class="cmFecha ${INP}" style="width:100%"></td>
     <td class="px-2 py-2 text-center">
       <button type="button" class="cmDel" title="Quitar fila"
@@ -48,9 +52,9 @@ function agregarFila() {
   return tr;
 }
 
-// ── Importación de archivo ────────────────────────────────────────────────────
+// ── Lectura de archivos ───────────────────────────────────────────────────────
 function parseNum(s) {
-  const n = String(s ?? "").replace(/[^\d]/g, ""); // CLP entero: deja solo dígitos
+  const n = String(s ?? "").replace(/[^\d]/g, ""); // CLP entero: solo dígitos
   return n ? parseInt(n, 10) : NaN;
 }
 function aFechaISO(s) {
@@ -85,9 +89,8 @@ function parseCSV(text) {
   return out.filter((r) => r.some((c) => String(c).trim() !== ""));
 }
 
-// Carga SheetJS desde CDN solo cuando hace falta leer un .xlsx.
-// Versión FIJA + SRI (integrity/crossorigin): si el CDN devolviera un archivo alterado,
-// el navegador lo rechaza y salta onerror (no ejecuta código no verificado).
+// SheetJS desde CDN solo cuando hace falta leer un .xlsx. Versión FIJA + SRI: si el CDN
+// devolviera un archivo alterado, el navegador lo rechaza y no ejecuta código no verificado.
 function cargarSheetJS() {
   if (window.XLSX) return Promise.resolve(window.XLSX);
   return new Promise((resolve, reject) => {
@@ -108,44 +111,47 @@ async function leerXlsx(file) {
     .filter((r) => r.some((c) => String(c).trim() !== ""));
 }
 
-// De una matriz [filaEncabezado, ...filas] → objetos {material,sucursal,compra,venta,vigencia}
+// De [encabezado, ...filas] → objetos {material, precio, vigencia}.
+// Acepta varios nombres de columna porque cada planilla viene distinta.
 function matrizAObjetos(matriz) {
   if (!matriz.length) return [];
   const headers = matriz[0].map((h) => normId(h));
   const col = (cands) => headers.findIndex((h) => cands.some((c) => h.includes(c)));
-  const iMat = col(["material"]), iSuc = col(["sucursal", "sucur"]),
-    iCom = col(["compra"]), iVen = col(["venta"]), iVig = col(["vigencia", "fecha"]);
+  const iMat = col(["material"]);
+  const iPre = col(["precio", "venta", "valor"]);
+  const iVig = col(["vigencia", "fecha"]);
   return matriz.slice(1).map((r) => ({
     material: iMat >= 0 ? r[iMat] : "",
-    sucursal: iSuc >= 0 ? r[iSuc] : "",
-    compra: iCom >= 0 ? r[iCom] : "",
-    venta: iVen >= 0 ? r[iVen] : "",
+    precio:   iPre >= 0 ? r[iPre] : "",
     vigencia: iVig >= 0 ? r[iVig] : "",
   }));
 }
 
-function volcarImportadas(objetos) {
+// Vuelca filas en la tabla editable. Es el punto común de Excel y del OCR de Diego:
+// lo que no se reconoce queda en ámbar para que el usuario lo corrija a ojo.
+function volcarFilas(objetos, etiquetaOrigen) {
   $("cmBody").innerHTML = "";
   let sinReconocer = 0;
   objetos.forEach((o) => {
     const matId = _matByName.get(normId(o.material)) || "";
-    const sucId = _sucByName.get(normId(o.sucursal)) || "";
     const tr = agregarFila();
     if (matId) tr.querySelector(".cmMat").value = matId;
-    if (sucId) tr.querySelector(".cmSuc").value = sucId;
-    const compra = parseNum(o.compra), venta = parseNum(o.venta);
-    if (Number.isFinite(compra)) tr.querySelector(".cmCompra").value = compra;
-    if (Number.isFinite(venta)) tr.querySelector(".cmVenta").value = venta;
-    const fecha = aFechaISO(o.vigencia); if (fecha) tr.querySelector(".cmFecha").value = fecha;
-    if (!matId || !sucId) {
+    const precio = parseNum(o.precio);
+    if (Number.isFinite(precio)) tr.querySelector(".cmPrecio").value = precio;
+    const fecha = aFechaISO(o.vigencia);
+    if (fecha) tr.querySelector(".cmFecha").value = fecha;
+    if (!matId) {
       sinReconocer++;
       tr.style.background = "#fffbeb"; // ámbar suave
-      tr.title = "Revisa material/sucursal: no se reconoció exactamente del archivo.";
+      tr.title = `No reconocí "${o.material}" en el catálogo: elígelo a mano.`;
     }
   });
   if (!$("cmBody").querySelector(".cmRow")) agregarFila();
-  $("cmInfo").textContent = `📄 Importadas ${objetos.length} fila(s).` +
-    (sinReconocer ? ` ⚠️ ${sinReconocer} sin reconocer material/sucursal (fondo ámbar): complétalas a mano.` : " Revisa y presiona Enviar a Recibidos.");
+  $("cmInfo").textContent = `${etiquetaOrigen} ${objetos.length} fila(s).` +
+    (sinReconocer
+      ? ` ⚠️ ${sinReconocer} sin reconocer el material (fondo ámbar): complétalas a mano.`
+      : " Revisa y presiona Enviar a Pendientes.");
+  return sinReconocer;
 }
 
 async function onImportar(file) {
@@ -153,45 +159,57 @@ async function onImportar(file) {
   $("cmInfo").textContent = "Leyendo archivo…";
   try {
     const nombre = file.name.toLowerCase();
-    let matriz;
-    if (nombre.endsWith(".xlsx") || nombre.endsWith(".xls")) matriz = await leerXlsx(file);
-    else matriz = parseCSV(await file.text());
+    const matriz = (nombre.endsWith(".xlsx") || nombre.endsWith(".xls"))
+      ? await leerXlsx(file) : parseCSV(await file.text());
     const objetos = matrizAObjetos(matriz);
     if (!objetos.length) { $("cmInfo").textContent = "El archivo no tiene filas de datos."; return; }
-    volcarImportadas(objetos);
+    volcarFilas(objetos, "📄 Importadas");
   } catch (e) {
-    $("cmInfo").textContent = "❌ No pude leer el archivo: " + e.message + " (si es Excel, prueba guardarlo como CSV).";
+    $("cmInfo").textContent = "❌ No pude leer el archivo: " + e.message +
+      " (si es Excel, prueba guardarlo como CSV).";
   }
 }
 
+// Plantilla de ejemplo. Se genera como .xls (HTML que Excel abre nativo) para que el
+// usuario reciba literalmente "un Excel", sin depender de SheetJS solo para descargar.
 function descargarPlantilla() {
-  const csv = "material,sucursal,compra,venta,vigencia\nCobre 1 Tubo,Cerrillos,4468,7050,\nAluminio Off Set,Maipu,976,1436,\n";
+  const ejemplos = [
+    ["Cobre 1 Tubo", 7050, "2026-08-01"],
+    ["Aluminio Off Set", 1436, "2026-08-01"],
+    ["Lata chatarra", 190, ""],
+  ];
+  const filas = ejemplos.map((e) =>
+    `<tr><td>${esc(e[0])}</td><td>${e[1]}</td><td>${e[2]}</td></tr>`).join("");
+  const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head>
+    <meta charset="utf-8"></head><body><table border="1">
+    <thead><tr><th>material</th><th>precio</th><th>vigencia</th></tr></thead>
+    <tbody>${filas}</tbody></table></body></html>`;
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  a.download = "plantilla_carga_precios.csv";
-  a.click(); URL.revokeObjectURL(a.href);
+  a.href = URL.createObjectURL(new Blob([html], { type: "application/vnd.ms-excel" }));
+  a.download = "ejemplo_carga_precios.xls";
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-// ── Envío a Recibidos ─────────────────────────────────────────────────────────
+// ── Envío ─────────────────────────────────────────────────────────────────────
 function recolectar() {
   const filas = [...$("cmBody").querySelectorAll(".cmRow")];
   const payloads = [];
   const errores = [];
   filas.forEach((tr, i) => {
     const mat = tr.querySelector(".cmMat").value;
-    const suc = tr.querySelector(".cmSuc").value;
-    const compra = parseFloat(tr.querySelector(".cmCompra").value);
-    const venta = parseFloat(tr.querySelector(".cmVenta").value);
+    const precioTxt = tr.querySelector(".cmPrecio").value;
+    const precio = parseFloat(precioTxt);
     const fecha = tr.querySelector(".cmFecha").value || null;
-    if (!mat && !suc && !tr.querySelector(".cmCompra").value && !tr.querySelector(".cmVenta").value) return;
-    if (!mat || !suc) { errores.push(`Fila ${i + 1}: elige material y sucursal.`); return; }
-    if (!Number.isFinite(venta) || venta <= 0) { errores.push(`Fila ${i + 1}: precio de venta inválido.`); return; }
-    if (Number.isFinite(compra) && compra > venta) { errores.push(`Fila ${i + 1}: la venta no puede ser menor que la compra.`); return; }
+    if (!mat && !precioTxt) return;                      // fila vacía: se ignora
+    if (!mat) { errores.push(`Fila ${i + 1}: elige el material.`); return; }
+    if (!Number.isFinite(precio) || precio <= 0) {
+      errores.push(`Fila ${i + 1}: precio inválido.`); return;
+    }
     payloads.push({
-      material_id: mat, sucursal_id: suc, precio_clp_kg: venta,
-      fecha_vigencia: fecha, confidence_score: 1.0, ruta: "andrea",
-      origen: "carga_manual_panel", estado: "pendiente", creado_por: _email,
-      metadata: { origen: "carga_manual_panel", precio_compra_clp: Number.isFinite(compra) ? compra : null, cargado_por: _email },
+      material_id: mat,
+      precio_recibido_clp: precio,
+      vigencia_desde: fecha,
     });
   });
   return { payloads, errores };
@@ -201,31 +219,44 @@ async function onEnviar() {
   const { payloads, errores } = recolectar();
   if (errores.length) { $("cmInfo").textContent = "⚠️ " + errores.join("  "); return; }
   if (!payloads.length) { $("cmInfo").textContent = "No hay filas con datos para enviar."; return; }
+
   $("cmEnviar").disabled = true;
   $("cmInfo").textContent = `Enviando ${payloads.length} precio(s)…`;
-  const { error } = await getClient().schema("staging").from("precios_propuestos").insert(payloads);
-  $("cmEnviar").disabled = false;
-  if (error) { $("cmInfo").textContent = "❌ No pude cargar: " + error.message + " (¿sesión iniciada?)"; return; }
-  $("cmBody").innerHTML = ""; agregarFila();
-  $("cmInfo").textContent = `✅ ${payloads.length} precio(s) enviado(s) a Recibidos.`;
+  try {
+    const origen = $("cmBody").dataset.origen || "carga_manual";
+    await cargarFilas(payloads, origen);
+
+    // Las filas entran como 'crudo'; se mueven a 'pendiente' de inmediato porque el
+    // usuario ya las revisó en esta pantalla (que es justamente para eso).
+    const recien = await listarBorradores({ estados: ["crudo"], limite: payloads.length });
+    if (recien.length) await pasarAPendiente(recien.map((r) => r.id));
+
+    $("cmBody").innerHTML = ""; agregarFila();
+    $("cmBody").dataset.origen = "carga_manual";
+    $("cmOrigen").classList.add("hidden");
+    $("cmInfo").textContent = `✅ ${payloads.length} precio(s) enviado(s) a Pendientes.`;
+  } catch (e) {
+    $("cmInfo").textContent = "❌ No pude cargar: " + e.message;
+  } finally {
+    $("cmEnviar").disabled = false;
+  }
 }
 
 export async function mountCargaManual() {
   const body = $("cmBody");
   try {
     const sb = getClient();
-    const [{ data: mats, error: em }, { data: sucs, error: es }, sess] = await Promise.all([
-      sb.schema("curated").from("materiales").select("material_id, nombre").order("nombre").limit(2000),
-      sb.schema("curated").from("sucursales").select("sucursal_id, nombre").order("nombre").limit(200),
+    const [{ data: mats, error: em }, sess] = await Promise.all([
+      sb.from("materiales_panel").select("material_id, nombre_interno")
+        .eq("activo", true).order("nombre_interno").limit(2000),
       getSession().catch(() => null),
     ]);
     if (em) throw em;
-    if (es) throw es;
+
     _email = sess?.user?.email || null;
-    _optMat = (mats || []).map((m) => `<option value="${esc(m.material_id)}">${esc(m.nombre)}</option>`).join("");
-    _optSuc = (sucs || []).map((s) => `<option value="${esc(s.sucursal_id)}">${esc(s.nombre)}</option>`).join("");
-    _matByName = new Map((mats || []).map((m) => [normId(m.nombre), m.material_id]));
-    _sucByName = new Map((sucs || []).map((s) => [normId(s.nombre), s.sucursal_id]));
+    _optMat = (mats || []).map((m) =>
+      `<option value="${esc(m.material_id)}">${esc(m.nombre_interno)}</option>`).join("");
+    _matByName = new Map((mats || []).map((m) => [normId(m.nombre_interno), m.material_id]));
 
     body.innerHTML = "";
     agregarFila(); agregarFila();
@@ -238,8 +269,29 @@ export async function mountCargaManual() {
       const f = e.target.files && e.target.files[0];
       onImportar(f); e.target.value = ""; // permite reimportar el mismo archivo
     });
-    $("cmInfo").textContent = _email ? `Sesión: ${_email}` : "⚠️ Sin sesión detectada — inicia sesión antes de enviar.";
+    $("cmInfo").textContent = _email ? `Sesión: ${_email}` : "⚠️ Sin sesión — inicia sesión antes de enviar.";
+
+    // ── Traspaso desde el OCR de Diego ──────────────────────────────────────
+    // Diego NO escribe en la base: deja lo leído en el buzón y el usuario lo revisa acá.
+    const traspaso = tomarParaCargaManual();
+    if (traspaso?.items?.length) {
+      const sinReconocer = volcarFilas(
+        traspaso.items.map((i) => ({
+          material: i.material,
+          precio: i.precio_clp_kg,
+          vigencia: "",
+        })),
+        "🔍 Diego leyó",
+      );
+      body.dataset.origen = traspaso.origen || "ocr_diego";
+      const aviso = $("cmOrigen");
+      aviso.innerHTML = `🔍 <b>${traspaso.items.length} precio(s) leídos por Diego desde una imagen.</b> ` +
+        `Todavía <b>no se ha guardado nada</b>: revísalos${
+          sinReconocer ? `, corrige los ${sinReconocer} en ámbar` : ""
+        } y presiona “Enviar a Pendientes”.`;
+      aviso.classList.remove("hidden");
+    }
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-rose-600">❌ No pude cargar el formulario: ${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-rose-600">❌ No pude cargar el formulario: ${esc(e.message)}</td></tr>`;
   }
 }
