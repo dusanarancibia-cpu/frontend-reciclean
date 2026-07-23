@@ -5,15 +5,19 @@ import { renderNavbar, setUsuario } from "../components/navbar.js";
 import { renderDiegoWidget } from "../components/diegoWidget.js";
 import { getSession, waitSupabase } from "../models/supabase.js";
 import { iniciarRelojChile } from "./util.js";
+import { cargarPermisos, puede, htmlAccesoDenegado } from "./permisos.js";
 import { mountCalculadora } from "../controllers/calculadoraController.js";
 import { initDiego } from "../controllers/diegoController.js";
-import { mountRecibidos } from "../controllers/recibidosController.js";
 import { mountCargaManual } from "../controllers/cargaManualController.js";
 import { mountPropuestas } from "../controllers/propuestasController.js";
 import { mountRevision } from "../controllers/revisionController.js";
 import { mountPublicados } from "../controllers/publicadosController.js";
 import { mountMateriales } from "../controllers/materialesController.js";
 import { mountVitrina } from "../controllers/vitrinaController.js";
+import { mountPendientes } from "../controllers/pendientesController.js";
+import { mountHistorial } from "../controllers/historialController.js";
+import { mountUsuarios } from "../controllers/usuariosController.js";
+import { mountCatalogo } from "../controllers/catalogoController.js";
 
 const BASE = ""; // v2 raíz limpia: las vistas viven en /views/*.html
 const $sidebar = document.getElementById("sidebar");
@@ -39,15 +43,23 @@ function toggleMenu() {
 // Tabla de rutas. `view` = archivo en /views. `mount` = controlador opcional.
 // Las pantallas aún no migradas reutilizan la plantilla "inicio" como placeholder.
 const ROUTES = {
-  // Precios (vistas propias)
-  materiales:    { view: "materiales",  mount: mountMateriales },
-  vitrina:       { view: "vitrina",     mount: mountVitrina },
-  calculadora:   { view: "calculadora", mount: mountCalculadora },
+  // Flujo del dato: Carga Manual → Pendientes → Calculadora → Publicados → Historial
   "carga-manual":{ view: "cargaManual", mount: mountCargaManual },
-  recibidos:     { view: "recibidos",   mount: mountRecibidos },
+  pendientes:    { view: "pendientes",  mount: mountPendientes },
+  calculadora:   { view: "calculadora", mount: mountCalculadora },
+  publicados:    { view: "publicados",  mount: mountPublicados },
+  historial:     { view: "historial",   mount: mountHistorial },
+  // Administración
+  materiales:    { view: "materiales",  mount: mountMateriales },
+  catalogo:      { view: "catalogo",    mount: mountCatalogo },
+  vitrina:       { view: "vitrina",     mount: mountVitrina },
+  usuarios:      { view: "usuarios",    mount: mountUsuarios },
+  // Fuera del menú por decisión de negocio, pero la ruta sigue viva (no se borró código).
   propuestas:    { view: "propuestas",  mount: mountPropuestas },
   revision:      { view: "revision",    mount: mountRevision },
-  publicados:    { view: "publicados",  mount: mountPublicados },
+  // "Recibidos" fue reemplazado por "Historial": se mantiene el alias para que no se
+  // rompan los enlaces antiguos que alguien pueda tener guardados.
+  recibidos:     { view: "historial",   mount: mountHistorial },
   // Home (placeholder sobre plantilla "inicio")
   inicio:        { view: "inicio", titulo: "Inicio", icono: "🏠" },
   "mi-dia":      { view: "inicio", titulo: "Mi Día", icono: "📆" },
@@ -57,7 +69,8 @@ const ROUTES = {
   // (No hay ruta "login" acá: el login real es /login.html — boot() redirige duro allí
   //  cuando no hay sesión. Una vista de login dentro del panel sería inalcanzable.)
 };
-const DEFAULT = "calculadora"; // primera pantalla funcional de la nueva arquitectura
+// Primera pantalla del flujo. Además es la ruta a la que todos los roles tienen acceso.
+const DEFAULT = "inicio";
 
 async function loadView(name) {
   const res = await fetch(`${BASE}/views/${name}.html`, { cache: "no-cache" });
@@ -69,6 +82,21 @@ async function navigate(route) {
   const r = ROUTES[route] || ROUTES[DEFAULT];
   const key = ROUTES[route] ? route : DEFAULT;
   cerrarDrawer(); // en móvil, al elegir una vista se cierra el menú
+
+  // GUARDIA DE ACCESO · va acá, dentro de navigate(), y no en el clic del menú:
+  // este es el único punto por el que pasa TODA navegación (clic, #hash escrito a mano,
+  // hashchange, enlace compartido). Una ruta no autorizada nunca llega a cargar su vista
+  // ni su controlador, así que tampoco dispara sus consultas.
+  if (!puede(key)) {
+    $content.innerHTML = htmlAccesoDenegado(key);
+    // Se deja ver el aviso un momento antes de mandar al inicio.
+    setTimeout(() => {
+      history.replaceState(null, "", "#inicio");
+      navigate("inicio");
+    }, 1800);
+    return;
+  }
+
   setActive($sidebar, key);
   if (location.hash.slice(1).split("?")[0] !== key)
     history.replaceState(null, "", `#${key}${location.search}`);
@@ -102,7 +130,11 @@ async function boot() {
   const sesion = await getSession().catch(() => null);
   if (!sesion) { location.replace("/login.html"); return; }
 
-  renderSidebar($sidebar, navigate);
+  // Los permisos se cargan ANTES del primer navigate(): así ninguna vista alcanza a
+  // montarse sin haber pasado por la guardia, ni siquiera la inicial.
+  await cargarPermisos();
+
+  renderSidebar($sidebar, navigate, puede);
   renderNavbar($navbar);
 
   // Reloj en vivo (siempre hora de Chile): actualiza header y footer cada 30 s.

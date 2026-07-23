@@ -10,16 +10,22 @@ export const MENU = [
     { ico: "✍️", label: "Firmas pendientes", route: "firmas",       ready: false },
     { ico: "🎛️", label: "Mesa Control",      route: "mesa-control", ready: false },
   ]},
+  // Orden del flujo real del dato: Carga Manual → Pendientes → Calculadora → Publicados.
   { seccion: "Precios", ico: "🏷️", items: [
+    { ico: "📝", label: "Carga manual",  route: "carga-manual", ready: true },
+    { ico: "⏳", label: "Pendientes",    route: "pendientes",   ready: true },
+    { ico: "🧮", label: "Calculadora",   route: "calculadora",  ready: true },
+    { ico: "🌐", label: "Publicados",    route: "publicados",   ready: true },
+    { ico: "📚", label: "Historial",     route: "historial",    ready: true },
     { ico: "🏷️", label: "Materiales y Precios", route: "materiales", ready: true },
-    { ico: "📝", label: "Carga manual", route: "carga-manual", ready: true },
-    { ico: "📥", label: "Recibidos",   route: "recibidos",   ready: true },
-    { ico: "🧮", label: "Calculadora", route: "calculadora", ready: true },
-    { ico: "💡", label: "Propuestas IA",   route: "propuestas",  ready: true },
-    { ico: "✅", label: "Aprobación Final", route: "revision",    ready: true },
-    { ico: "🌐", label: "Publicados",  route: "publicados",  ready: true },
-    { ico: "🖥️", label: "Vitrina pública", route: "vitrina", ready: true },
   ]},
+  { seccion: "Administración", ico: "⚙️", items: [
+    { ico: "📦", label: "Catálogo de materiales", route: "catalogo", ready: true },
+    { ico: "🖥️", label: "Vitrina pública",       route: "vitrina",  ready: true },
+    { ico: "👥", label: "Usuarios",              route: "usuarios", ready: true },
+  ]},
+  // "Propuestas IA" y "Aprobación Final" quedan fuera del menú por decisión de negocio
+  // (se obvian por ahora). Sus rutas y controladores siguen existiendo: no se borró código.
 ];
 
 // Mapa route → sección, para saber qué grupo abrir al activar una ruta
@@ -43,7 +49,13 @@ function grupoHTML(s) {
   </div>`;
 }
 
-export function renderSidebar(mountEl, onNavigate) {
+// `puede` (opcional) filtra el menú por permisos: lo que el usuario no puede abrir
+// directamente no se dibuja, para que no descubra secciones que igual le serán negadas.
+export function renderSidebar(mountEl, onNavigate, puede = null) {
+  const MENU_VISIBLE = !puede ? MENU : MENU
+    .map((s) => ({ ...s, items: s.items.filter((it) => puede(it.route)) }))
+    .filter((s) => s.items.length);
+
   mountEl.innerHTML = `
     <div class="flex items-center gap-2 px-4 h-14 border-b border-stone-800">
       <span class="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0">R</span>
@@ -52,7 +64,7 @@ export function renderSidebar(mountEl, onNavigate) {
         <div class="text-[11px] text-stone-400">Panel modular · MVC</div>
       </div>
     </div>
-    <nav class="py-2 flex-1 overflow-y-auto">${MENU.map(grupoHTML).join("")}</nav>
+    <nav class="py-2 flex-1 overflow-y-auto">${MENU_VISIBLE.map(grupoHTML).join("")}</nav>
     <div class="px-4 py-3 text-[11px] text-stone-500 border-t border-stone-800 sb-footer">
       Arquitectura modular · reemplaza gradualmente a panel-rdo.html
     </div>`;
