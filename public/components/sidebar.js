@@ -11,12 +11,14 @@ export const MENU = [
     { ico: "🎛️", label: "Mesa Control",      route: "mesa-control", ready: false },
   ]},
   { seccion: "Precios", ico: "🏷️", items: [
+    { ico: "🏷️", label: "Materiales y Precios", route: "materiales", ready: true },
     { ico: "📝", label: "Carga manual", route: "carga-manual", ready: true },
     { ico: "📥", label: "Recibidos",   route: "recibidos",   ready: true },
     { ico: "🧮", label: "Calculadora", route: "calculadora", ready: true },
     { ico: "💡", label: "Propuestas IA",   route: "propuestas",  ready: true },
     { ico: "✅", label: "Aprobación Final", route: "revision",    ready: true },
     { ico: "🌐", label: "Publicados",  route: "publicados",  ready: true },
+    { ico: "🖥️", label: "Vitrina pública", route: "vitrina", ready: true },
   ]},
 ];
 

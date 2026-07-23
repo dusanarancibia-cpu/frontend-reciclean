@@ -12,6 +12,8 @@ import { mountCargaManual } from "../controllers/cargaManualController.js";
 import { mountPropuestas } from "../controllers/propuestasController.js";
 import { mountRevision } from "../controllers/revisionController.js";
 import { mountPublicados } from "../controllers/publicadosController.js";
+import { mountMateriales } from "../controllers/materialesController.js";
+import { mountVitrina } from "../controllers/vitrinaController.js";
 
 const BASE = ""; // v2 raíz limpia: las vistas viven en /views/*.html
 const $sidebar = document.getElementById("sidebar");
@@ -38,6 +40,8 @@ function toggleMenu() {
 // Las pantallas aún no migradas reutilizan la plantilla "inicio" como placeholder.
 const ROUTES = {
   // Precios (vistas propias)
+  materiales:    { view: "materiales",  mount: mountMateriales },
+  vitrina:       { view: "vitrina",     mount: mountVitrina },
   calculadora:   { view: "calculadora", mount: mountCalculadora },
   "carga-manual":{ view: "cargaManual", mount: mountCargaManual },
   recibidos:     { view: "recibidos",   mount: mountRecibidos },
