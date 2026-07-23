@@ -1,0 +1,68 @@
+<!-- VISTA · Usuarios y permisos. Solo gerencia.
+     Los IDs los consume /controllers/usuariosController.js. -->
+<section class="max-w-5xl mx-auto p-4 md:p-6">
+  <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>👥</span><span>Usuarios y permisos</span></h2>
+      <p class="text-sm text-stone-500 mt-1">
+        Asigna el rol de cada persona. El rol define qué secciones puede abrir y qué datos ve.
+      </p>
+    </div>
+    <span id="usrRolChip" class="chip off">cargando…</span>
+  </header>
+
+  <div id="usrAviso" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-800 border border-amber-200"></div>
+
+  <div class="grid md:grid-cols-3 gap-3 mb-4">
+    <div class="bg-white border border-stone-300 rounded-lg p-3">
+      <div class="text-xs text-stone-500 uppercase tracking-wider">Gerencia</div>
+      <div class="text-2xl font-bold text-emerald-700 mt-1" id="usrNGerencia">—</div>
+      <div class="text-xs text-stone-500">ve costos y publica precios</div>
+    </div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3">
+      <div class="text-xs text-stone-500 uppercase tracking-wider">Operador</div>
+      <div class="text-2xl font-bold text-sky-700 mt-1" id="usrNOperador">—</div>
+      <div class="text-xs text-stone-500">carga y revisa, sin ver costos</div>
+    </div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3">
+      <div class="text-xs text-stone-500 uppercase tracking-wider">Lector</div>
+      <div class="text-2xl font-bold text-stone-700 mt-1" id="usrNLector">—</div>
+      <div class="text-xs text-stone-500">solo consulta</div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
+    <input id="usrBuscar" type="search" placeholder="Buscar persona…"
+      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[200px]">
+    <select id="usrRolLote" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
+      <option value="">— rol a aplicar —</option>
+      <option value="gerencia">gerencia</option>
+      <option value="operador">operador</option>
+      <option value="lector">lector</option>
+    </select>
+    <button id="usrAplicarLote" class="bg-stone-800 text-white px-3 py-1.5 rounded text-sm font-medium">Aplicar a seleccionados</button>
+  </div>
+
+  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead id="usrHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
+        <tr>
+          <th class="px-3 py-2.5"><input type="checkbox" id="usrTodos" title="Seleccionar todo"></th>
+          <th class="text-left px-4 py-2.5" data-sort="email">Persona</th>
+          <th class="text-left px-4 py-2.5" data-sort="rol">Rol</th>
+          <th class="text-right px-4 py-2.5">Cambiar a</th>
+        </tr>
+      </thead>
+      <tbody id="usrBody" class="divide-y divide-stone-100">
+        <tr><td colspan="4" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="usrPager"></div>
+  <p class="text-xs text-stone-500 mt-3" id="usrInfo"></p>
+
+  <p class="text-xs text-stone-500 mt-4 border-t border-stone-200 pt-3">
+    ℹ️ <b>Para crear cuentas nuevas</b>: invita a la persona desde Supabase → Authentication → Users.
+    Apenas entre por primera vez aparecerá en esta lista como <b>lector</b> y podrás asignarle su rol.
+  </p>
+</section>
