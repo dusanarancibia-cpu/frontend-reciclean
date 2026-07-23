@@ -5,7 +5,8 @@
     <div>
       <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>🏷️</span><span>Materiales y Precios</span></h2>
       <p class="text-sm text-stone-500 mt-1">
-        Haz clic sobre un precio para editarlo, igual que en una planilla. <b>Enter</b> guarda, <b>Esc</b> cancela.
+        Haz clic sobre el precio publicado para editarlo, igual que en una planilla.
+        <b>Enter</b> guarda, <b>Esc</b> cancela.
       </p>
     </div>
     <span id="matRolChip" class="chip off">cargando…</span>
@@ -30,8 +31,10 @@
         <tr>
           <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
           <th class="text-left px-4 py-2.5" data-sort="sucursal">Sucursal</th>
-          <th class="text-right px-4 py-2.5" data-sort="venta">Precio de venta</th>
-          <th class="text-right px-4 py-2.5 matSoloGerencia" data-sort="compra">Costo</th>
+          <th class="text-right px-4 py-2.5" data-sort="publicado"
+              title="Lo que le pagamos a la gente. Es el precio que ven las webs públicas.">Precio publicado</th>
+          <th class="text-right px-4 py-2.5 matSoloGerencia" data-sort="recibido"
+              title="Lo que nos pagan las fundiciones. Dato interno.">Recibido (fundición)</th>
           <th class="text-right px-4 py-2.5 matSoloGerencia" data-sort="margen">Margen</th>
           <th class="text-left px-4 py-2.5" data-sort="vigencia">Vigente desde</th>
         </tr>

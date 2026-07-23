@@ -10,13 +10,17 @@
  *   <div id="tabla-precios"></div>
  *   <script>ReciPrecios.montar("#tabla-precios", "FAREX");</script>
  *
+ * QUÉ PRECIO ENTREGA: `precio` es el precio publicado, o sea lo que NOSOTROS LE PAGAMOS
+ * A LA GENTE por su material. El precio que nos pagan las fundiciones es interno y no
+ * sale por esta vía.
+ *
  * SOBRE LA CLAVE: la anon key es pública por diseño y va a la vista en el HTML.
  * No es un secreto y no hay que ocultarla. Lo que la vuelve inofensiva es que con
  * ella SOLO se puede leer la vista public.precios_publicos:
- *   · el esquema precios_v3 (donde viven costo, margen y flete) no tiene USAGE
- *     para el rol anónimo → esas tablas son inalcanzables desde la API;
- *   · la vista pública proyecta 5 columnas y ninguna es sensible;
- *   · pedir ?select=precio_compra_clp devuelve HTTP 400.
+ *   · el esquema precios_v3 (donde viven el precio recibido, el margen y el flete) no
+ *     tiene USAGE para el rol anónimo → esas tablas son inalcanzables desde la API;
+ *   · la vista pública proyecta columnas no sensibles;
+ *   · pedir ?select=precio_recibido_clp devuelve HTTP 400.
  * Verificado contra la API REST real antes de publicar este archivo.
  * ========================================================================== */
 (function (global) {

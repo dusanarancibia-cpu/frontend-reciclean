@@ -47,10 +47,10 @@ export async function mountMateriales() {
       sorters: {
         material: (r) => r.material || "",
         sucursal: (r) => r.sucursal || "",
-        venta:    (r) => Number(r.precio_venta_clp),
-        compra:   (r) => Number(r.precio_compra_clp ?? 0),
-        margen:   (r) => Number(r.margen_pct ?? 0),
-        vigencia: (r) => r.vigencia_desde || "",
+        publicado: (r) => Number(r.precio_publicado_clp ?? 0),
+        recibido:  (r) => Number(r.precio_recibido_clp ?? 0),
+        margen:    (r) => Number(r.margen_pct ?? 0),
+        vigencia:  (r) => r.vigencia_desde || "",
       },
       infoText: (total, page, pages) =>
         `${total} precio(s) vigente(s) · página ${page} de ${pages}.`,
@@ -67,15 +67,18 @@ export async function mountMateriales() {
 // ── Render ────────────────────────────────────────────────────────────────────
 function renderRow(r) {
   // data-* identifica la fila para el guardado; van escapados porque son ids de texto.
-  // La celda de venta solo lleva la clase que la vuelve editable si el rol lo permite:
-  // sin permiso no existe el gancho, así que la UI ni siquiera invita al clic.
-  const claseVenta = _rol === "gerencia" ? " matVenta" : "";
+  // Lo editable es el PRECIO PUBLICADO (lo que le pagamos a la gente). La clase que lo
+  // vuelve editable solo se pone si el rol lo permite: sin permiso no existe el gancho.
+  const clasePub = _rol === "gerencia" ? " matPublicado" : "";
+  // Los precios migrados del modelo antiguo tienen semántica dudosa: se marcan a la vista.
+  const aviso = r.requiere_revision
+    ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de publicarlo">⚠️</span>` : "";
   return `<tr class="hover:bg-stone-50" data-mat="${esc(r.material_id)}" data-suc="${esc(r.sucursal_id)}">
-    <td class="px-4 py-2.5 font-medium text-stone-800">${esc(r.material)}</td>
+    <td class="px-4 py-2.5 font-medium text-stone-800">${esc(r.material)}${aviso}</td>
     <td class="px-4 py-2.5 text-stone-600">${esc(r.sucursal)}</td>
-    <td class="px-4 py-2.5 text-right font-semibold text-emerald-700${claseVenta}"
-        data-valor="${r.precio_venta_clp}">${clp(r.precio_venta_clp)}</td>
-    <td class="px-4 py-2.5 text-right text-stone-600 matSoloGerencia">${clp(r.precio_compra_clp)}</td>
+    <td class="px-4 py-2.5 text-right font-semibold text-emerald-700${clasePub}"
+        data-valor="${r.precio_publicado_clp ?? ""}">${clp(r.precio_publicado_clp)}</td>
+    <td class="px-4 py-2.5 text-right text-stone-600 matSoloGerencia">${clp(r.precio_recibido_clp)}</td>
     <td class="px-4 py-2.5 text-right text-stone-600 matSoloGerencia">${pct(r.margen_pct)}</td>
     <td class="px-4 py-2.5 text-stone-500 text-xs">${r.vigencia_desde || "—"}${
       r.creado_por ? " · " + esc(r.creado_por) : ""}</td>
@@ -87,7 +90,7 @@ function cablearCeldas(filasPagina) {
   ocultarColumnasSensibles();
   if (_rol !== "gerencia") return; // sin permiso no se cablea nada: la UI ni siquiera lo ofrece
 
-  document.querySelectorAll("#matBody .matVenta").forEach((td) => {
+  document.querySelectorAll("#matBody .matPublicado").forEach((td) => {
     const tr = td.closest("tr");
     const materialId = tr.dataset.mat;
     const sucursalId = tr.dataset.suc;
@@ -98,12 +101,12 @@ function cablearCeldas(filasPagina) {
     activarEdicion(td, {
       valor,
       formato: clp,
-      // Confirmación selectiva: solo cuando el cambio es grande o rompe el costo.
+      // Confirmación selectiva: solo cuando el cambio es grande o dejaría el negocio en pérdida.
       confirmar: (nuevo, anterior) => {
-        const costo = datos?.precio_compra_clp;
-        if (costo != null && nuevo < Number(costo)) {
-          return `⛔ <b>${clp(nuevo)}</b> queda por debajo del costo (${clp(costo)}). ` +
-                 `Estarías vendiendo con pérdida.`;
+        const recibido = datos?.precio_recibido_clp;
+        if (recibido != null && nuevo > Number(recibido)) {
+          return `⛔ Pagarías <b>${clp(nuevo)}</b> por un material que la fundición nos paga a ` +
+                 `${clp(recibido)}. Estarías comprando con pérdida.`;
         }
         const base = Number(anterior) || 0;
         if (base > 0 && Math.abs(nuevo - base) / base >= VARIACION_QUE_ALERTA) {
@@ -114,13 +117,15 @@ function cablearCeldas(filasPagina) {
         return null; // cambio rutinario: se guarda sin interrumpir
       },
       onGuardar: async (nuevo) => {
-        await actualizarPrecio({ materialId, sucursalId, venta: nuevo });
+        await actualizarPrecio({ materialId, sucursalId, publicado: nuevo });
         // Mantiene el estado local en sintonía para que ordenar/filtrar no reviva el valor viejo.
         const f = _filas.find((x) => x.material_id === materialId && x.sucursal_id === sucursalId);
         if (f) {
-          f.precio_venta_clp = nuevo;
-          if (f.precio_compra_clp != null && nuevo > 0) {
-            f.margen_pct = ((nuevo - Number(f.precio_compra_clp)) / nuevo) * 100;
+          f.precio_publicado_clp = nuevo;
+          f.requiere_revision = false;   // el RPC lo limpia al guardar
+          const rec = Number(f.precio_recibido_clp);
+          if (f.precio_recibido_clp != null && rec > 0) {
+            f.margen_pct = ((rec - nuevo) / rec) * 100;
           }
         }
         actualizarResumen();
