@@ -48,9 +48,17 @@
           <input id="password" type="password" required autocomplete="current-password"
             class="w-full border border-stone-300 rounded px-3 py-2 text-sm bg-white" />
         </div>
+        <label class="flex items-center gap-2 text-xs text-stone-600 select-none cursor-pointer">
+          <input type="checkbox" id="recordar" checked>
+          Recordar mi sesión en este equipo
+        </label>
         <button id="btn" type="submit"
           class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded text-sm disabled:opacity-50">Entrar</button>
       </form>
+      <button id="olvide" type="button"
+        class="mt-3 text-xs text-emerald-700 font-semibold underline bg-transparent border-0 cursor-pointer p-0">
+        Olvidé mi clave
+      </button>
       <p id="msg" class="text-sm mt-3 text-rose-600"></p>
     </div>
   </div>
@@ -62,7 +70,21 @@
     for (let i = 0; i < 100 && !(window.supabase && window.supabase.createClient); i++) {
       await new Promise((r) => setTimeout(r, 50));
     }
-    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    // "Recordar sesión" decide DÓNDE se guarda el token:
+    //   localStorage   → sobrevive a cerrar el navegador (equipo propio)
+    //   sessionStorage → muere al cerrar la pestaña (equipo compartido)
+    // La preferencia se recuerda en localStorage para que el checkbox salga como
+    // lo dejó el usuario la última vez.
+    const PREF = "reci:recordar";
+    const recordarPref = localStorage.getItem(PREF) !== "0";
+    $("recordar").checked = recordarPref;
+
+    const crearCliente = (recordar) => window.supabase.createClient(
+      cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY,
+      { auth: { persistSession: true, storage: recordar ? localStorage : sessionStorage } },
+    );
+
+    let sb = crearCliente(recordarPref);
 
     // Si ya hay sesión activa, directo al panel.
     try {
@@ -73,6 +95,19 @@
     $("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       $("btn").disabled = true; $("msg").textContent = "";
+
+      const recordar = $("recordar").checked;
+      localStorage.setItem(PREF, recordar ? "1" : "0");
+      // Se recrea el cliente por si cambió la elección desde que se cargó la página:
+      // el storage se fija al construirlo, no se puede cambiar después.
+      sb = crearCliente(recordar);
+      if (!recordar) {
+        // Limpia cualquier token persistente de una sesión anterior "recordada".
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith("sb-") && k.includes("auth-token"))
+          .forEach((k) => localStorage.removeItem(k));
+      }
+
       const email = $("email").value.trim();
       const password = $("password").value;
       const { error } = await sb.auth.signInWithPassword({ email, password });
@@ -82,6 +117,30 @@
         return;
       }
       location.replace("/");
+    });
+
+    // ── Recuperar clave ──────────────────────────────────────────────────────
+    // Se envía un enlace al correo que lleva a /reset.html, donde se define la nueva.
+    $("olvide").addEventListener("click", async () => {
+      const email = $("email").value.trim();
+      const msg = $("msg");
+      if (!email) {
+        msg.className = "text-sm mt-3 text-amber-700";
+        msg.textContent = "Escribe tu correo arriba y vuelve a tocar “Olvidé mi clave”.";
+        return;
+      }
+      msg.className = "text-sm mt-3 text-stone-600";
+      msg.textContent = "Enviando el enlace…";
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: location.origin + "/reset.html",
+      });
+      if (error) {
+        msg.className = "text-sm mt-3 text-rose-600";
+        msg.textContent = "No pude enviar el correo: " + error.message;
+        return;
+      }
+      msg.className = "text-sm mt-3 text-emerald-700";
+      msg.textContent = "✅ Te enviamos un enlace a " + email + ". Revisa tu correo (y la carpeta de spam).";
     });
   </script>
 </body>

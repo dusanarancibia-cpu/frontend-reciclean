@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nueva clave · Reciclean</title>
+  <meta name="theme-color" content="#1A7A3C" />
+  <link rel="stylesheet" href="/tailwind.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <!-- supabase-js con versión FIJA + SRI (igual que index.html y login.html). -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+    integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+    crossorigin="anonymous" defer></script>
+  <script>
+    // Página STANDALONE, igual que login.html: config mínima propia.
+    // Repo público: la anon key NO es secreto.
+    window.RECICLEAN_CONFIG = {
+      SUPABASE_URL: "https://eknmtsrtfkzroxnovfqn.supabase.co",
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrbm10c3J0Zmt6cm94bm92ZnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDY2ODgsImV4cCI6MjA5MDk4MjY4OH0.8Y4N0lw3DFN3Y8-R6ID7t_LAfgHWDM5N-oa4Ji9bncg",
+    };
+  </script>
+</head>
+<body class="bg-stone-100 text-stone-800" style="font-family:Inter,system-ui,sans-serif">
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white border border-stone-300 rounded-xl shadow-sm p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="w-9 h-9 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center">R</span>
+        <div class="leading-tight">
+          <div class="font-bold text-stone-800">Reciclean</div>
+          <div class="text-xs text-stone-500">Panel de precios</div>
+        </div>
+      </div>
+
+      <h1 class="text-lg font-bold text-stone-800 mb-1">Define tu nueva clave</h1>
+      <p class="text-sm text-stone-500 mb-4" id="sub">Verificando el enlace…</p>
+
+      <form id="form" class="space-y-3" style="display:none">
+        <div>
+          <label class="block text-xs text-stone-600 mb-1" for="pass1">Nueva clave</label>
+          <input id="pass1" type="password" required minlength="8" autocomplete="new-password"
+            class="w-full border border-stone-300 rounded px-3 py-2 text-sm bg-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-stone-600 mb-1" for="pass2">Repite la clave</label>
+          <input id="pass2" type="password" required minlength="8" autocomplete="new-password"
+            class="w-full border border-stone-300 rounded px-3 py-2 text-sm bg-white" />
+        </div>
+        <p class="text-xs text-stone-500">Mínimo 8 caracteres.</p>
+        <button id="btn" type="submit"
+          class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded text-sm disabled:opacity-50">
+          Guardar clave
+        </button>
+      </form>
+
+      <p id="msg" class="text-sm mt-3"></p>
+      <a href="/login.html" class="text-xs text-emerald-700 font-semibold underline mt-3 inline-block">Volver al ingreso</a>
+    </div>
+  </div>
+
+  <script type="module">
+    const cfg = window.RECICLEAN_CONFIG;
+    const $ = (id) => document.getElementById(id);
+    for (let i = 0; i < 100 && !(window.supabase && window.supabase.createClient); i++) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+    const decir = (texto, color) => {
+      const m = $("msg");
+      m.className = "text-sm mt-3 " + color;
+      m.textContent = texto;
+    };
+
+    // Al llegar desde el correo, supabase-js canjea el token del enlace por una sesión
+    // temporal. Sin esa sesión no se puede cambiar la clave: el enlace venció o ya se usó.
+    let sesion = null;
+    try {
+      const { data } = await sb.auth.getSession();
+      sesion = data?.session || null;
+      if (!sesion) {
+        // El evento llega un instante después si el token viene en el fragmento (#).
+        await new Promise((r) => setTimeout(r, 600));
+        const reintento = await sb.auth.getSession();
+        sesion = reintento.data?.session || null;
+      }
+    } catch (_) { sesion = null; }
+
+    if (!sesion) {
+      $("sub").textContent = "Este enlace no es válido o ya venció.";
+      decir("Pide uno nuevo desde “Olvidé mi clave” en la pantalla de ingreso.", "text-rose-600");
+    } else {
+      $("sub").textContent = "Escribe tu clave nueva para " + (sesion.user?.email || "tu cuenta") + ".";
+      $("form").style.display = "";
+    }
+
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const p1 = $("pass1").value, p2 = $("pass2").value;
+      if (p1 !== p2) return decir("Las claves no coinciden.", "text-rose-600");
+      if (p1.length < 8) return decir("La clave debe tener al menos 8 caracteres.", "text-rose-600");
+
+      $("btn").disabled = true;
+      decir("Guardando…", "text-stone-600");
+      const { error } = await sb.auth.updateUser({ password: p1 });
+      if (error) {
+        $("btn").disabled = false;
+        return decir("No pude guardar la clave: " + error.message, "text-rose-600");
+      }
+      decir("✅ Clave actualizada. Te llevamos al panel…", "text-emerald-700");
+      setTimeout(() => location.replace("/"), 1200);
+    });
+  </script>
+</body>
+</html>

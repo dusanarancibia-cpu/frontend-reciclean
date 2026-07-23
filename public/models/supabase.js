@@ -4,9 +4,25 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../js/config.js";
 
 let _sb = null;
 
-// Cliente único (window.supabase viene del CDN cargado en dashboard.html)
+// El login deja en localStorage la preferencia de "recordar sesión". El panel DEBE
+// construir su cliente con el mismo storage: si el login guardó el token en
+// sessionStorage y el panel lo buscara en localStorage, no encontraría la sesión,
+// rebotaría al login, el login sí la vería y volvería a entrar → bucle infinito.
+function storageDeSesion() {
+  try {
+    return localStorage.getItem("reci:recordar") === "0" ? sessionStorage : localStorage;
+  } catch {
+    return localStorage;
+  }
+}
+
+// Cliente único (window.supabase viene del CDN cargado en index.html)
 export function getClient() {
-  if (!_sb) _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  if (!_sb) {
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, storage: storageDeSesion() },
+    });
+  }
   return _sb;
 }
 
