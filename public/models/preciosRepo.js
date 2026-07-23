@@ -32,6 +32,19 @@ export async function listarPrecios() {
   return data || [];
 }
 
+// Precio vigente de un par material×sucursal. Lo usa la Calculadora para mostrar el
+// "Delta vs vigente": cuánto sube o baja respecto de lo que hoy está publicado.
+// Devuelve null si el par todavía no tiene precio (material nuevo en esa sucursal).
+export async function precioVigente(materialId, sucursalId) {
+  const { data, error } = await getClient()
+    .from("precios_panel")
+    .select("precio_publicado_clp, precio_ejecutivo_clp, precio_maximo_clp, vigencia_desde")
+    .eq("material_id", materialId).eq("sucursal_id", sucursalId)
+    .maybeSingle();
+  if (error) return null;
+  return data || null;
+}
+
 // Actualiza el precio que publicamos (lo que pagamos a la gente) para un material/sucursal.
 // El RPC cierra la vigencia anterior, inserta la nueva fila y escribe la auditoría
 // en una sola transacción; si el usuario no es gerencia responde 42501.

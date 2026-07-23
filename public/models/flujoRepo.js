@@ -41,12 +41,37 @@ export async function pasarAPendiente(ids) {
 }
 
 // Publicar es lo único reservado a gerencia: aquí se asigna sucursal y precio público.
-export async function publicar({ id, sucursalId, precioPublicado, nota = null }) {
+// Además de P.Lista se guarda la escalera de negociación (P.Ejec, P.Máx) y los parámetros
+// con que se calculó, para que el precio sea reproducible y el ejecutivo sepa su techo.
+// Los parámetros nuevos son opcionales en el RPC: una llamada sin ellos sigue funcionando.
+export async function publicar({
+  id, sucursalId, precioPublicado, nota = null,
+  precioEjecutivo = null, precioMaximo = null,
+  flete = null, spreadPct = null, ivaPct = null, redondeo = null,
+}) {
   const { data, error } = await getClient().rpc("f_borrador_publicar", {
     p_id: id, p_sucursal_id: sucursalId,
     p_precio_publicado: precioPublicado, p_nota: nota,
+    p_precio_ejecutivo: precioEjecutivo, p_precio_maximo: precioMaximo,
+    p_flete: flete, p_spread_pct: spreadPct,
+    p_iva_pct: ivaPct, p_redondeo: redondeo,
   });
   if (error) throw new Error(traducir(error.message));
+  return data;
+}
+
+// Umbrales del semáforo y valores iniciales de los sliders. Viven en la base para que
+// gerencia los ajuste sin desplegar. Si la consulta falla se devuelven los mismos valores
+// que traía el código antiguo, así la Calculadora nunca queda inutilizable.
+const CONFIG_FALLBACK = {
+  margen_min_pct: 6, margen_meta_pct: 30, def_margen_pct: 30, def_spread_pct: 20,
+  def_flete_clp: 0, def_iva_pct: 0, def_volumen_kg: 500, def_redondeo: "0",
+};
+
+export async function configCalculadora() {
+  const { data, error } = await getClient()
+    .from("config_calculadora_panel").select("*").maybeSingle();
+  if (error || !data) return { ...CONFIG_FALLBACK };
   return data;
 }
 
