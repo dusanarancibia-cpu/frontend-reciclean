@@ -8,6 +8,7 @@ import { getClient } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { abrirModal } from "../components/modal.js";
 import { escapeHTML, horaChile, filtroGlobal } from "../js/util.js";
+import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
@@ -36,7 +37,7 @@ export async function mountUsuarios() {
     if (error) throw new Error(error.message);
 
     _filas = data || [];
-    _rol = _filas[0]?.mi_rol || "lector";
+    _rol = _filas[0]?.mi_rol || rolActual();   // sin filas, el rol de mis_permisos (no "lector")
     pintarRol();
     contar();
 

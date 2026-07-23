@@ -6,10 +6,11 @@
 //   vista (materiales.html) → marcado e IDs
 //   este controlador        → datos, filtros, tabla y reglas de confirmación
 //   precioCelda.js          → la interacción de editar una celda
-import { listarPrecios, actualizarPrecio, rolDesdeToken } from "../models/preciosRepo.js";
+import { listarPrecios, actualizarPrecio } from "../models/preciosRepo.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { activarEdicion } from "../components/precioCelda.js";
 import { escapeHTML, horaChile } from "../js/util.js";
+import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
@@ -32,7 +33,7 @@ export async function mountMateriales() {
   try {
     _filas = await listarPrecios();
     // mi_rol viene calculado por la base; si aún no hay filas caemos al claim del JWT.
-    _rol = _filas[0]?.mi_rol || (await rolDesdeToken()) || "lector";
+    _rol = _filas[0]?.mi_rol || rolActual();   // sin filas, el rol de mis_permisos (no "lector")
 
     pintarRol();
     poblarSucursales();

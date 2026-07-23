@@ -21,6 +21,7 @@ import { listarBorradores, publicar, descartar, catalogos, configCalculadora } f
 import { precioVigente } from "../models/preciosRepo.js";
 import { abrirModal } from "../components/modal.js";
 import { escapeHTML, filtroGlobal } from "../js/util.js";
+import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
@@ -46,7 +47,10 @@ export async function mountCalculadora() {
     _sucursales = cat.sucursales;
     _cfg = cfg;
     _modo = cfg.def_redondeo || "0";
-    _rol = filas[0]?.mi_rol || "lector";
+    // El rol autoritativo se cargó al arranque desde mis_permisos (rolActual). Antes se
+    // infería de filas[0].mi_rol, pero con la lista vacía caía a "lector" y trataba a
+    // gerencia como solo lectura. Se usa mi_rol solo si viene, y si no, el de permisos.
+    _rol = filas[0]?.mi_rol || rolActual();
     _sel = null;
 
     pintarRol();

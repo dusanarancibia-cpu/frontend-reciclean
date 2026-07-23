@@ -12,6 +12,7 @@ import { listarBorradores, descartar, vaciarHistorial, contarVaciadoHistorial } 
 import { montarTabla, conectarSeleccion } from "../js/listaTabla.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { escapeHTML, horaChile } from "../js/util.js";
+import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
@@ -40,7 +41,7 @@ export async function mountHistorial() {
 
   try {
     const filas = await consultar();
-    _rol = filas[0]?.mi_rol || "lector";
+    _rol = filas[0]?.mi_rol || rolActual();   // sin filas, el rol de mis_permisos (no "lector")
 
     _seleccion = conectarSeleccion({
       tbody: body, master: $("hisTodos"), clase: "hisChk", onCambio: pintarLote,

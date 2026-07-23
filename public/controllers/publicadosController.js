@@ -11,11 +11,12 @@
 //
 // Las columnas de sucursal se construyen desde los datos: agregar una sucursal nueva no
 // requiere tocar código ni la vista.
-import { listarPrecios, listarVitrina, publicarMaterial, rolDesdeToken,
+import { listarPrecios, listarVitrina, publicarMaterial,
          reiniciarPrecios, contarReinicioPrecios } from "../models/preciosRepo.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { escapeHTML, normalizarTexto } from "../js/util.js";
+import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
@@ -39,7 +40,9 @@ export async function mountPublicados() {
     // Las dos fuentes son independientes y ninguna depende de la otra: van en paralelo.
     const [precios, vitrina] = await Promise.all([listarPrecios(), listarVitrina()]);
 
-    _rol = precios[0]?.mi_rol || vitrina[0]?.mi_rol || (await rolDesdeToken()) || "lector";
+    // rolDesdeToken() leía app_metadata del JWT, que es null mientras el hook no esté
+    // activo; por eso caía a "lector". rolActual() viene de mis_permisos y siempre está.
+    _rol = precios[0]?.mi_rol || vitrina[0]?.mi_rol || rolActual();
     _sucursales = sucursalesDesde(precios);
     _filas = fusionar(precios, vitrina);
 

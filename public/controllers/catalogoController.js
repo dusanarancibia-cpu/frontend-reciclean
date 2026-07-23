@@ -10,6 +10,7 @@ import { getClient } from "../models/supabase.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { escapeHTML, filtroGlobal } from "../js/util.js";
+import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
@@ -55,7 +56,7 @@ async function recargar() {
     .order("nombre_interno");
   if (error) throw new Error(error.message);
   _filas = data || [];
-  _rol = _filas[0]?.mi_rol || "lector";
+  _rol = _filas[0]?.mi_rol || rolActual();   // sin filas, el rol de mis_permisos (no "lector")
 }
 
 function visibles() {
