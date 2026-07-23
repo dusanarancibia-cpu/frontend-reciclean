@@ -60,6 +60,37 @@ export async function actualizarPrecio({ materialId, sucursalId, publicado, reci
   return data;
 }
 
+// Visibilidad de cada material en cada web. Antes lo leía vitrinaController directamente
+// con getClient(); al fusionarse Vitrina dentro de Publicados el acceso baja al modelo,
+// que es donde vive el resto del módulo.
+//
+// La vista entrega una fila por (material, empresa). Se devuelve agrupado por material
+// —{ material_id, material, visible: { farex: bool, reciclean_spa: bool } }— porque la
+// pantalla muestra una fila por material con una casilla por empresa.
+export async function listarVitrina() {
+  const { data, error } = await getClient()
+    .from("vitrina_panel")
+    .select("material_id, material, nombre_publico, empresa_id, visible, precio_referencia, mi_rol")
+    .order("material");
+  if (error) throw new Error(error.message);
+
+  const mapa = new Map();
+  (data || []).forEach((f) => {
+    if (!mapa.has(f.material_id)) {
+      mapa.set(f.material_id, {
+        material_id: f.material_id,
+        material: f.material,
+        nombre_publico: f.nombre_publico,
+        precio_referencia: f.precio_referencia,
+        mi_rol: f.mi_rol,
+        visible: {},
+      });
+    }
+    mapa.get(f.material_id).visible[f.empresa_id] = !!f.visible;
+  });
+  return [...mapa.values()];
+}
+
 // Enciende o apaga un material en la vitrina pública de una empresa.
 export async function publicarMaterial({ empresaId, materialId, visible }) {
   const { data, error } = await getClient().rpc("f_publicar_material", {

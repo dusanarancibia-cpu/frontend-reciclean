@@ -13,8 +13,6 @@ import { mountPropuestas } from "../controllers/propuestasController.js";
 import { mountRevision } from "../controllers/revisionController.js";
 import { mountPublicados } from "../controllers/publicadosController.js";
 import { mountMateriales } from "../controllers/materialesController.js";
-import { mountVitrina } from "../controllers/vitrinaController.js";
-import { mountPendientes } from "../controllers/pendientesController.js";
 import { mountHistorial } from "../controllers/historialController.js";
 import { mountUsuarios } from "../controllers/usuariosController.js";
 import { mountCatalogo } from "../controllers/catalogoController.js";
@@ -43,23 +41,20 @@ function toggleMenu() {
 // Tabla de rutas. `view` = archivo en /views. `mount` = controlador opcional.
 // Las pantallas aún no migradas reutilizan la plantilla "inicio" como placeholder.
 const ROUTES = {
-  // Flujo del dato: Carga Manual → Pendientes → Calculadora → Publicados → Historial
+  // Flujo del dato: Carga Manual → Calculadora → Publicados → Historial.
+  // "Pendientes" se eliminó: la Calculadora lista los mismos pendientes y además permite
+  // resolverlos con la escalera completa, así que era un paso de más.
   "carga-manual":{ view: "cargaManual", mount: mountCargaManual },
-  pendientes:    { view: "pendientes",  mount: mountPendientes },
   calculadora:   { view: "calculadora", mount: mountCalculadora },
   publicados:    { view: "publicados",  mount: mountPublicados },
   historial:     { view: "historial",   mount: mountHistorial },
   // Administración
   materiales:    { view: "materiales",  mount: mountMateriales },
   catalogo:      { view: "catalogo",    mount: mountCatalogo },
-  vitrina:       { view: "vitrina",     mount: mountVitrina },
   usuarios:      { view: "usuarios",    mount: mountUsuarios },
   // Fuera del menú por decisión de negocio, pero la ruta sigue viva (no se borró código).
   propuestas:    { view: "propuestas",  mount: mountPropuestas },
   revision:      { view: "revision",    mount: mountRevision },
-  // "Recibidos" fue reemplazado por "Historial": se mantiene el alias para que no se
-  // rompan los enlaces antiguos que alguien pueda tener guardados.
-  recibidos:     { view: "historial",   mount: mountHistorial },
   // Home (placeholder sobre plantilla "inicio")
   inicio:        { view: "inicio", titulo: "Inicio", icono: "🏠" },
   "mi-dia":      { view: "inicio", titulo: "Mi Día", icono: "📆" },
@@ -69,6 +64,16 @@ const ROUTES = {
   // (No hay ruta "login" acá: el login real es /login.html — boot() redirige duro allí
   //  cuando no hay sesión. Una vista de login dentro del panel sería inalcanzable.)
 };
+// ALIAS de rutas retiradas → la vista que absorbió esa función.
+// Se resuelven ANTES de la guardia de permisos: si no, `#pendientes` mostraría "acceso
+// denegado" (esa ruta ya no existe en rol_permiso) en vez de llevar a la Calculadora.
+// Sirven para no romper enlaces guardados ni #hash escritos a mano.
+const ALIAS = {
+  recibidos:  "historial",    // Recibidos  → Historial
+  pendientes: "calculadora",  // Pendientes → Calculadora (resuelve la misma cola)
+  vitrina:    "publicados",   // Vitrina    → Publicados (absorbió la publicación)
+};
+
 // Primera pantalla del flujo. Además es la ruta a la que todos los roles tienen acceso.
 const DEFAULT = "inicio";
 
@@ -79,8 +84,9 @@ async function loadView(name) {
 }
 
 async function navigate(route) {
-  const r = ROUTES[route] || ROUTES[DEFAULT];
-  const key = ROUTES[route] ? route : DEFAULT;
+  const destino = ALIAS[route] || route;          // alias primero: ver comentario en ALIAS
+  const r = ROUTES[destino] || ROUTES[DEFAULT];
+  const key = ROUTES[destino] ? destino : DEFAULT;
   cerrarDrawer(); // en móvil, al elegir una vista se cierra el menú
 
   // GUARDIA DE ACCESO · va acá, dentro de navigate(), y no en el clic del menú:

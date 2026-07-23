@@ -10,18 +10,19 @@ export const MENU = [
     { ico: "✍️", label: "Firmas pendientes", route: "firmas",       ready: false },
     { ico: "🎛️", label: "Mesa Control",      route: "mesa-control", ready: false },
   ]},
-  // Orden del flujo real del dato: Carga Manual → Pendientes → Calculadora → Publicados.
+  // Orden del flujo real del dato: Carga Manual → Calculadora → Publicados → Historial.
+  // "Pendientes" se retiró: la Calculadora lista la misma cola y la resuelve completa.
   { seccion: "Precios", ico: "🏷️", items: [
     { ico: "📝", label: "Carga manual",  route: "carga-manual", ready: true },
-    { ico: "⏳", label: "Pendientes",    route: "pendientes",   ready: true },
     { ico: "🧮", label: "Calculadora",   route: "calculadora",  ready: true },
     { ico: "🌐", label: "Publicados",    route: "publicados",   ready: true },
     { ico: "📚", label: "Historial",     route: "historial",    ready: true },
     { ico: "🏷️", label: "Materiales y Precios", route: "materiales", ready: true },
   ]},
+  // "Vitrina pública" se fusionó dentro de Publicados: publicar y ver lo publicado son
+  // la misma decisión, y separarlas obligaba a gerencia a cruzar dos pantallas.
   { seccion: "Administración", ico: "⚙️", items: [
     { ico: "📦", label: "Catálogo de materiales", route: "catalogo", ready: true },
-    { ico: "🖥️", label: "Vitrina pública",       route: "vitrina",  ready: true },
     { ico: "👥", label: "Usuarios",              route: "usuarios", ready: true },
   ]},
   // "Propuestas IA" y "Aprobación Final" quedan fuera del menú por decisión de negocio
