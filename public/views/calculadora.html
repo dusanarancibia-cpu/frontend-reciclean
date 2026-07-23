@@ -1,133 +1,90 @@
-<!-- VISTA · Calculadora soporte de decisión (fragmento inyectado en #content).
-     Los IDs coinciden con /calculadora/js/view.js — NO renombrar sin actualizar la vista JS. -->
-<section class="max-w-5xl mx-auto p-4 md:p-6">
+<!-- VISTA · Calculadora. Tercera etapa del flujo: gerencia toma un pendiente,
+     le asigna sucursal y define el precio que se publicará.
+     Los IDs los consume /controllers/calculadoraController.js.
+     NOTA: ya no hay "categoría margen" (se eliminó del sistema). El margen es informativo. -->
+<section class="max-w-6xl mx-auto p-4 md:p-6">
   <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
     <div>
-      <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>🧮</span><span>Calculadora soporte de decisión</span></h2>
-      <p class="text-sm text-stone-500 mt-1">Ajusta el precio con margen, IVA y flete. Cuando esté listo, usa <b>Pasar a Aprobación Final</b> para enviarlo a revisión de gerencia (no se publica de un solo clic).</p>
+      <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>🧮</span><span>Calculadora</span></h2>
+      <p class="text-sm text-stone-500 mt-1">
+        Elige un precio pendiente, asígnale la <b>sucursal</b> y define cuánto le pagamos a la gente.
+        Ese valor es el que verán las webs públicas.
+      </p>
     </div>
-    <span id="chip" class="chip off">sin sesión</span>
+    <span id="calcRolChip" class="chip off">cargando…</span>
   </header>
 
-  <div id="banner" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-800 border border-amber-200"></div>
+  <div id="calcAviso" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-800 border border-amber-200"></div>
 
-  <!-- Cargar por proposalId -->
-  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
-    <label class="text-xs text-stone-600">proposalId</label>
-    <input id="pid" type="text" placeholder="ej. 1260" class="border border-stone-300 rounded px-2 py-1.5 text-sm w-40" />
-    <button id="btnCargar" class="bg-stone-800 text-white px-3 py-1.5 rounded text-sm font-medium">Cargar caso</button>
-    <span id="loadMsg" class="text-xs text-stone-500"></span>
-  </div>
-
-  <!-- Capa 1 · precio en análisis (Diego) -->
-  <div id="capa1" class="hidden bg-white border border-emerald-200 rounded-lg p-3 mb-4 text-sm flex flex-wrap gap-x-6 gap-y-1">
-    <span class="text-xs text-stone-500 uppercase tracking-wider w-full">Capa 1 · Precio en análisis (Diego)</span>
-    <span>Cliente: <strong id="c1Cli">—</strong></span>
-    <span>Material: <strong id="c1Mat">—</strong></span>
-    <span>Sucursal: <strong id="c1Suc">—</strong></span>
-    <span>Precio compra detectado: <strong id="c1Precio" class="text-emerald-700">—</strong></span>
-  </div>
-
-  <!-- Selects -->
-  <div class="grid md:grid-cols-3 gap-4 mb-4">
-    <div>
-      <label class="block text-xs text-stone-600 mb-1">Material</label>
-      <select id="calcMaterial" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm bg-white"><option value="">(cargando…)</option></select>
-      <label class="flex items-center gap-1 text-xs text-stone-500 mt-1"><input type="checkbox" id="calcFiltroEnAnalisis"> Mostrar solo materiales en análisis</label>
+  <div class="grid md:grid-cols-5 gap-4">
+    <!-- Lista de pendientes -->
+    <div class="md:col-span-2">
+      <div class="bg-white border border-stone-300 rounded-lg p-3">
+        <input id="calcBuscar" type="search" placeholder="Buscar material…"
+          class="w-full border border-stone-300 rounded px-3 py-1.5 text-sm mb-2">
+        <div id="calcLista" class="divide-y divide-stone-100 max-h-[26rem] overflow-y-auto">
+          <p class="text-sm text-stone-400 py-6 text-center">Cargando…</p>
+        </div>
+      </div>
+      <p class="text-xs text-stone-500 mt-2" id="calcResumen"></p>
     </div>
-    <div>
-      <label class="block text-xs text-stone-600 mb-1">Sucursal</label>
-      <select id="calcSucursal" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm bg-white"><option value="">Elige sucursal…</option></select>
+
+    <!-- Panel de trabajo -->
+    <div class="md:col-span-3">
+      <div id="calcPanel" class="bg-white border border-stone-300 rounded-lg p-4">
+        <p class="text-sm text-stone-400 text-center py-10" id="calcVacio">
+          Elige un precio de la lista para trabajarlo.
+        </p>
+
+        <div id="calcTrabajo" class="hidden">
+          <div class="mb-4">
+            <div class="text-xs text-stone-500 uppercase tracking-wider">Material</div>
+            <div class="text-xl font-bold text-stone-800" id="calcMaterial">—</div>
+            <div class="text-xs text-stone-500 mt-1" id="calcMeta">—</div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-stone-50 border border-stone-200 rounded-lg p-3">
+              <div class="text-xs text-stone-500 uppercase tracking-wider">Nos pagan (fundición)</div>
+              <div class="text-2xl font-bold text-stone-800 mt-1" id="calcRecibido">—</div>
+              <div class="text-xs text-stone-500">dato interno</div>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <div class="text-xs text-emerald-700 uppercase tracking-wider">Margen resultante</div>
+              <div class="text-2xl font-bold text-emerald-800 mt-1" id="calcMargen">—</div>
+              <div class="text-xs text-emerald-700">solo informativo</div>
+            </div>
+          </div>
+
+          <label class="block mb-3">
+            <span class="text-xs text-stone-600">Sucursal</span>
+            <select id="calcSucursal" class="w-full border border-stone-300 rounded px-2 py-2 text-sm bg-white mt-1">
+              <option value="">— elige sucursal —</option>
+            </select>
+          </label>
+
+          <label class="block mb-3">
+            <span class="text-xs text-stone-600">Precio a publicar (lo que le pagamos a la gente) $/kg</span>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="range" id="calcSlider" min="0" max="100" step="1" value="70" class="flex-1 calc-slider">
+              <input type="number" id="calcPrecio" min="0" step="1"
+                class="w-32 border border-stone-300 rounded px-2 py-2 text-sm font-bold text-right">
+            </div>
+          </label>
+
+          <div id="calcAlerta" class="hidden mb-3 rounded-lg px-4 py-3 text-sm bg-rose-50 text-rose-800 border border-rose-300 font-semibold"></div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="calcPublicar" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded text-sm font-semibold disabled:opacity-50">
+              Publicar precio →
+            </button>
+            <button id="calcDescartar" class="bg-white border border-rose-300 text-rose-700 px-4 py-2 rounded text-sm font-medium">
+              Descartar
+            </button>
+            <span id="calcMsg" class="text-xs text-stone-500"></span>
+          </div>
+        </div>
+      </div>
     </div>
-    <div>
-      <label class="block text-xs text-stone-600 mb-1">Categoría margen</label>
-      <select id="calcCategoria" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm bg-white"><option value="">(cargando…)</option></select>
-    </div>
-  </div>
-  <div class="flex flex-wrap items-center gap-2 mb-3">
-    <span class="text-xs text-stone-500" id="calcHistorialInfo">Elige material y sucursal y ajusta el precio, o carga un caso por su ID.</span>
-  </div>
-
-  <!-- Precio de compra (costo interno). Solo se necesita para publicar un material/sucursal
-       que aún no tiene costo vigente (caso independiente). Se envía como costo transitorio. -->
-  <div class="flex flex-wrap items-center gap-2 mb-4">
-    <label class="text-xs text-stone-600" for="calcCompra">Precio de compra (costo) $/kg</label>
-    <input id="calcCompra" type="number" min="0" step="1" placeholder="solo si no hay costo vigente"
-      class="border border-stone-300 rounded px-2 py-1.5 text-sm w-56">
-    <span class="text-xs text-stone-400">Necesario para publicar un material sin costo previo (margen mínimo 20%).</span>
-  </div>
-
-  <!-- 6 sliders · cada uno con input numérico gemelo (ingreso exacto) -->
-  <div class="grid md:grid-cols-2 gap-x-6 gap-y-3 bg-white border border-stone-300 rounded-lg p-4 mb-4">
-    <label class="block"><span class="text-xs text-stone-600">Precio venta <strong id="calcLblP">$0</strong>/kg</span>
-      <div class="flex items-center gap-2 mt-1">
-        <input type="range" id="calcP" min="50" max="12000" step="1" value="6000" class="flex-1 calc-slider">
-        <input type="number" id="calcPNum" min="0" step="1" class="w-24 border border-stone-300 rounded px-2 py-1 text-xs">
-      </div></label>
-    <label class="block"><span class="text-xs text-stone-600">Margen objetivo <strong id="calcLblMg">30%</strong></span>
-      <div class="flex items-center gap-2 mt-1">
-        <input type="range" id="calcMg" min="20" max="70" step="1" value="30" class="flex-1 calc-slider">
-        <input type="number" id="calcMgNum" min="20" max="70" step="1" class="w-24 border border-stone-300 rounded px-2 py-1 text-xs">
-      </div></label>
-    <label class="block"><span class="text-xs text-stone-600">Flete <strong id="calcLblFl">$0</strong>/kg</span>
-      <div class="flex items-center gap-2 mt-1">
-        <input type="range" id="calcFl" min="0" max="300" step="5" value="0" class="flex-1 calc-slider">
-        <input type="number" id="calcFlNum" min="0" step="1" class="w-24 border border-stone-300 rounded px-2 py-1 text-xs">
-      </div></label>
-    <label class="block"><span class="text-xs text-stone-600">Spread Lista/Máx <strong id="calcLblB">20%</strong></span>
-      <div class="flex items-center gap-2 mt-1">
-        <input type="range" id="calcB" min="0" max="60" step="1" value="20" class="flex-1 calc-slider">
-        <input type="number" id="calcBNum" min="0" max="100" step="1" class="w-24 border border-stone-300 rounded px-2 py-1 text-xs">
-      </div></label>
-    <label class="block"><span class="text-xs text-stone-600">Volumen mensual <strong id="calcLblVol">500</strong> kg</span>
-      <div class="flex items-center gap-2 mt-1">
-        <input type="range" id="calcVol" min="500" max="100000" step="500" value="500" class="flex-1 calc-slider">
-        <input type="number" id="calcVolExacto" min="0" step="1" class="w-24 border border-stone-300 rounded px-2 py-1 text-xs">
-      </div></label>
-    <label class="block"><span class="text-xs text-stone-600">Retención IVA Farex <strong id="calcLblIva">0%</strong></span>
-      <div class="flex items-center gap-2 mt-1">
-        <input type="range" id="calcIva" min="0" max="19" step="1" value="0" class="flex-1 calc-slider">
-        <input type="number" id="calcIvaNum" min="0" max="19" step="1" class="w-24 border border-stone-300 rounded px-2 py-1 text-xs">
-      </div></label>
-  </div>
-
-  <div class="flex items-center gap-2 mb-2">
-    <span class="text-xs text-stone-500">Redondeo (P.Max/P.Lista/P.Ejec):</span>
-    <div class="inline-flex rounded-lg border border-stone-300 overflow-hidden" id="calcRedondeoToggle">
-      <button data-modo="0" class="calcRedondeoBtn px-3 py-1 text-xs font-medium">Terminado en 0</button>
-      <button data-modo="5" class="calcRedondeoBtn px-3 py-1 text-xs font-medium border-l border-stone-300">Terminado en 5</button>
-      <button data-modo="exacto" class="calcRedondeoBtn px-3 py-1 text-xs font-medium border-l border-stone-300">Exacto</button>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P.Max</div><div class="text-2xl font-bold text-stone-800 mt-1" id="calcPmax">—</div><div class="text-xs text-stone-500">máx pagable</div></div>
-    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P. Lista Nuevo</div><div class="text-2xl font-bold text-emerald-700 mt-1" id="calcPlista">—</div><div class="text-xs text-stone-500">precio propuesto</div></div>
-    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">P.Ejec</div><div class="text-2xl font-bold text-sky-700 mt-1" id="calcPejec">—</div><div class="text-xs text-stone-500">negociable</div></div>
-    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">IVA Farex</div><div class="text-2xl font-bold text-stone-700 mt-1" id="calcIvaAmt">—</div><div class="text-xs text-stone-500">retención/kg</div></div>
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Contribución mensual</div><div class="text-2xl font-bold text-stone-800 mt-1" id="calcContrib">—</div><div class="text-xs text-stone-500">vol × (P.Venta − P.Compra − Flete)</div></div>
-    <div class="bg-white border border-stone-300 rounded-lg p-3" id="calcSemaforoBox"><div class="text-xs text-stone-500 uppercase tracking-wider">Semáforo MG</div><div class="text-lg font-bold mt-1" id="calcSemaforo">—</div><div class="text-xs text-stone-500" id="calcSemaforoDetalle">elige categoría</div></div>
-  </div>
-
-  <!-- Alerta notoria: el precio de compra (recibido) supera al P. Lista Nuevo -->
-  <div id="calcAlertaCosto" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-rose-50 text-rose-800 border border-rose-300 font-semibold"></div>
-
-  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4">
-    <div class="text-xs text-stone-500 uppercase tracking-wider mb-2">Líneas de corte P&amp;L (sobre P. Lista Nuevo)</div>
-    <div class="flex flex-wrap gap-3 text-sm">
-      <span>P. Lista Nuevo: <strong id="calcCorte100">—</strong></span>
-      <span class="text-amber-700">−20%: <strong id="calcCorte80">—</strong></span>
-      <span class="text-rose-700">−40%: <strong id="calcCorte60">—</strong></span>
-      <span class="ml-auto text-stone-500">P. Lista Actual: <strong id="calcDeltaVig">—</strong></span>
-    </div>
-  </div>
-
-  <div class="flex flex-wrap items-center gap-3">
-    <button id="btnGuardar" class="bg-white border border-stone-300 text-stone-700 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">← Regresar</button>
-    <button id="btnAprobar" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-50">Pasar a Aprobación Final →</button>
-    <span id="actMsg" class="text-xs text-stone-500"></span>
   </div>
 </section>
