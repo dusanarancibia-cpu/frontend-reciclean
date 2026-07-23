@@ -51,7 +51,9 @@ Columnas exactas (verificadas contra el esquema real):
 | `precio` | numeric | **CLP por unidad. Es lo que la empresa LE PAGA a quien trae el material** |
 | `unidad` | text | normalmente `kg` |
 | `actualizado` | date | desde cuándo rige ese precio |
-| `categoria` | text | agrupación del material (`metal_cobre`, `plastico_pet`, …) para filtros |
+| `categoria` | text | slug crudo del catálogo (`metal_cobre`, …). Para depurar, no para mostrar |
+| `grupo` | text | **etiqueta legible para el filtro** (`Aluminios`, `Plásticos · PET`, …) |
+| `grupo_orden` | int | orden en que deben mostrarse los grupos; ordena por este campo |
 
 Filtrado por empresa (sintaxis PostgREST):
 `...precios_publicos?select=material,sucursal,precio&empresa=eq.FAREX&order=material`
@@ -85,28 +87,63 @@ Cuerpo JSON: `{"p_texto": "cobre", "p_empresa": "FAREX", "p_limite": 10}`
 
 ---
 
+## LA LÓGICA DEL SISTEMA QUE LAS WEBS DEBEN RESPETAR
+
+Las webs no son un catálogo suelto: son la vitrina de un sistema que ya decide qué se
+publica y cómo se agrupa. Estas reglas no son de estilo, son del modelo de datos.
+
+1. **El precio es lo que la empresa PAGA a quien trae el material.** Redáctalo como
+   "te pagamos $X por kilo". Nunca "precio de venta", "precio lista" ni "precio de
+   mercado": esos son los números internos y no salen por esta vía.
+
+2. **Publicar es una decisión de gerencia, tomada en el panel.** Un material aparece solo
+   si está activado en la *Vitrina pública*, y se activa **por empresa**. Que FAREX muestre
+   un material no implica que Reciclean lo muestre. La web nunca decide qué mostrar: pinta
+   lo que la vista le entrega.
+
+3. **Una fila por material × sucursal.** Agrupa por sucursal (pestañas). No colapses las
+   sucursales en un solo precio "promedio": son precios distintos y reales.
+
+4. **Las categorías se agrupan en la base, no en el JavaScript.** El catálogo heredado trae
+   25 slugs con duplicados (`metal_ferroso` y `metales_ferrosos`, `papel` y `papel_carton`).
+   Eso ya está resuelto en la tabla `precios_v3.categoria_publica`, que se proyecta como
+   `grupo` y `grupo_orden`. **Usa `grupo`; no inventes categorías ni las deduzcas del
+   nombre del material.** Si una agrupación se ve mal, se corrige en la base y las dos webs
+   cambian solas: no toques el JS para eso, avísalo.
+
+5. **`actualizado` es la fecha desde la que rige el precio.** Muéstrala; da confianza y
+   evita que pregunten "¿esto está vigente?".
+
+6. **Lista vacía no es un error.** Significa que aún no hay nada publicado. Muestra un
+   mensaje amable con invitación a contactar, nunca un error técnico.
+
+---
+
 ## PUNTO DE PARTIDA: YA HAY CÓDIGO ESCRITO
 
-En el repo del panel existe `public-web/precios-publicos.js`, listo para subir por FTP.
-Expone:
+En el repo del panel existe `public-web/precios-publicos.js`: el widget completo, que ya
+implementa las 6 reglas de arriba (pestañas por sucursal, buscador sin tildes, filtro por
+`grupo`, tarjetas, estados vacíos y de error). Súbelo por FTP y úsalo como base.
 
 ```js
-ReciPrecios.montar("#tabla-precios", "FAREX");   // pinta una tabla simple
-ReciPrecios.obtener("Reciclean");                // devuelve los datos crudos
+// Uso mínimo: pinta el widget entero dentro del contenedor.
+ReciPrecios.montar("#precios", { empresa: "farex" });          // o "reciclean_spa"
+ReciPrecios.montar("#precios", { empresa: "farex", sucursal: "maipu" }); // fija sucursal
+
+ReciPrecios.obtener({ empresa: "farex" });        // datos crudos, por si maquetas tú
+ReciPrecios.buscar("cobre", "FAREX");             // búsqueda difusa (chatbot)
 ```
 
-Ese archivo tiene un marcador `PEGAR_AQUI_LA_ANON_KEY` que debes reemplazar por la clave
-de arriba. Úsalo como base; solo escribe algo nuevo si el sitio necesita otra maquetación.
+**No requiere supabase-js.** Usa `fetch` contra la API REST: un archivo menos que cargar en
+WordPress y una dependencia menos que se puede romper. Si ya cargaste el SDK para otra cosa,
+no estorba, pero no lo agregues solo por esto.
 
-Carga del SDK (versión fija + verificación de integridad; no la cambies sin recalcular el hash):
+Reemplaza el marcador `PEGAR_AQUI_LA_ANON_KEY` por la clave de más arriba.
 
-```html
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
-        integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
-        crossorigin="anonymous"></script>
-```
-
-Si prefieres no cargar el SDK, `fetch` directo a la URL REST funciona igual de bien.
+Los estilos van con prefijo `.reci-` y heredan la tipografía del sitio, así que se integran
+con el tema. Si el diseño existente ya tiene su propia maqueta (como en farex.cl), puedes
+quedarte con esa maqueta y usar solo `ReciPrecios.obtener()` para los datos — pero respeta
+las 6 reglas igual.
 
 ---
 
@@ -143,8 +180,9 @@ Si prefieres no cargar el SDK, `fetch` directo a la URL REST funciona igual de b
   en minúsculas usando la columna `empresa`, no encontrarás nada. Para evitarlo puedes
   filtrar por `empresa_id=eq.farex` / `empresa_id=eq.reciclean_spa`, que son estables.
 
-- **Un mismo material aparece varias veces**, una por sucursal. Si la web muestra un solo
-  precio por material, agrupa tú (por ejemplo, muestra la sucursal o toma el valor común).
+- **Un mismo material aparece varias veces**, una por sucursal. Sepáralos por pestañas (el
+  widget ya lo hace). No los promedies ni te quedes con uno solo: son precios reales
+  distintos y publicar el que no corresponde a esa sucursal es un error de negocio.
 
 - **CORS ya está resuelto** por Supabase para peticiones desde el navegador. Si ves un error
   de CORS, casi seguro es que la URL o la cabecera `apikey` están mal escritas.
@@ -169,12 +207,10 @@ y falla. Esto es lo que pasa y cómo proceder:
 - **Conserva el diseño y reescribe solo la capa de datos.** Es el enfoque correcto: el HTML,
   los tabs y los estilos se quedan; cambia únicamente el fetch y el render de filas.
 
-- **El filtro de categoría se queda, con dato real.** La vista pública ahora incluye la
-  columna `categoria`. No inventes categorías por heurística de nombre: usa ese campo.
-  Aviso: hoy la taxonomía viene del catálogo antiguo y tiene duplicados semánticos
-  (`metal_ferroso` y `metales_ferrosos`, `papel_carton` y `celulosa_carton`). Los valores
-  sirven para filtrar, pero si los muestras crudos se verán categorías repetidas.
-  Muéstralos formateados y avisa del detalle; la limpieza del catálogo es tarea del panel.
+- **El filtro de categoría se queda, con dato real y ya limpio.** Usa la columna `grupo`
+  (etiqueta legible) ordenando por `grupo_orden`. Los duplicados del catálogo heredado ya
+  están fusionados en la base; no los resuelvas en el JS ni deduzcas categorías por el
+  nombre del material. Si ves una agrupación rara, repórtala: se arregla en la base.
 
 - **Usa la anon key JWT de este documento.** La clave `sb_publishable_…` que hay hoy en el
   widget también funciona (ambas resuelven al mismo rol), pero unifica en la documentada.

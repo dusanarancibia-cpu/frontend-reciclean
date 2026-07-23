@@ -1,111 +1,285 @@
 /* ============================================================================
- * PRECIOS PÚBLICOS · Snippet para las webs de cPanel (Farex / Reciclean)
+ * PRECIOS PÚBLICOS · Widget para las webs de cPanel (FAREX / Reciclean)
  * ----------------------------------------------------------------------------
- * Cómo se usa (ejemplo al final del archivo):
+ * Implementación de referencia del modelo de precios v3. Las dos webs deben usar
+ * ESTE archivo, no una copia adaptada: así una corrección se hace una vez.
  *
- *   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
- *           integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
- *           crossorigin="anonymous"></script>
+ * USO MÍNIMO
+ *   <div id="precios"></div>
  *   <script src="/js/precios-publicos.js"></script>
- *   <div id="tabla-precios"></div>
- *   <script>ReciPrecios.montar("#tabla-precios", "FAREX");</script>
+ *   <script>ReciPrecios.montar("#precios", { empresa: "farex" });</script>
  *
- * QUÉ PRECIO ENTREGA: `precio` es el precio publicado, o sea lo que NOSOTROS LE PAGAMOS
- * A LA GENTE por su material. El precio que nos pagan las fundiciones es interno y no
- * sale por esta vía.
+ * NO NECESITA supabase-js. Usa fetch contra la API REST: un archivo menos que cargar
+ * en WordPress y una dependencia menos que se puede romper.
  *
- * SOBRE LA CLAVE: la anon key es pública por diseño y va a la vista en el HTML.
- * No es un secreto y no hay que ocultarla. Lo que la vuelve inofensiva es que con
- * ella SOLO se puede leer la vista public.precios_publicos:
- *   · el esquema precios_v3 (donde viven el precio recibido, el margen y el flete) no
- *     tiene USAGE para el rol anónimo → esas tablas son inalcanzables desde la API;
- *   · la vista pública proyecta columnas no sensibles;
- *   · pedir ?select=precio_recibido_clp devuelve HTTP 400.
- * Verificado contra la API REST real antes de publicar este archivo.
+ * ---------------------------------------------------------------------------
+ * LAS REGLAS DEL MODELO NUEVO (respetarlas al maquetar)
+ *
+ * 1. `precio` es lo que NOSOTROS LE PAGAMOS a quien trae el material. Redáctalo como
+ *    "te pagamos $X por kilo". Nunca "precio de venta" ni "precio lista": ese es el
+ *    precio interno que pagan las fundiciones y no sale por esta vía.
+ * 2. Un material aparece SOLO si gerencia lo activó en la Vitrina del panel, y por
+ *    empresa. Que FAREX muestre algo no implica que Reciclean lo muestre.
+ * 3. Hay una fila por material × sucursal. El widget agrupa por sucursal en pestañas.
+ * 4. La agrupación de categorías vive en la base (`precios_v3.categoria_publica`),
+ *    no acá. Usa el campo `grupo`; no inventes categorías por el nombre del material.
+ * 5. Lista vacía NO es un error: significa que aún no hay nada publicado.
+ *
+ * SOBRE LA CLAVE: la anon key es pública por diseño y va a la vista en el HTML. No es
+ * un secreto y no hay que ocultarla. Lo que la vuelve inofensiva es que con ella solo
+ * se llega a `public.precios_publicos` y a `f_buscar_precio_publico`; el esquema
+ * `precios_v3` (precio recibido, margen, flete) no tiene USAGE para el rol anónimo.
+ * Verificado contra la API real: cualquier otro objeto responde 401.
  * ========================================================================== */
-(function (global) {
+(function (global, doc) {
   "use strict";
 
-  var SUPABASE_URL = "https://eknmtsrtfkzroxnovfqn.supabase.co";
+  var URL_BASE = "https://eknmtsrtfkzroxnovfqn.supabase.co/rest/v1/";
   // Reemplazar por la anon key del proyecto (es pública; se puede versionar).
-  var SUPABASE_ANON_KEY = "PEGAR_AQUI_LA_ANON_KEY";
+  var ANON_KEY = "PEGAR_AQUI_LA_ANON_KEY";
 
-  var _cliente = null;
-  function cliente() {
-    if (!_cliente) {
-      if (!global.supabase || !global.supabase.createClient) {
-        throw new Error("Falta cargar el script de supabase-js antes de este archivo.");
-      }
-      _cliente = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-    return _cliente;
+  var COLUMNAS = "material_id,material,grupo,grupo_orden,empresa_id,empresa," +
+                 "sucursal_id,sucursal,precio,unidad,actualizado";
+
+  function cabeceras() {
+    return { apikey: ANON_KEY, Authorization: "Bearer " + ANON_KEY };
   }
 
-  var clp = function (n) {
-    return n == null ? "—" : "$" + Number(n).toLocaleString("es-CL");
-  };
+  function pedir(ruta) {
+    return fetch(URL_BASE + ruta, { headers: cabeceras() }).then(function (r) {
+      if (!r.ok) {
+        // 401 acá casi siempre significa que se pidió un objeto que no es público.
+        return r.text().then(function (t) {
+          throw new Error("API " + r.status + ": " + t.slice(0, 200));
+        });
+      }
+      return r.json();
+    });
+  }
+
+  /* ---------------------------------------------------------------- datos --- */
 
   /**
-   * Trae los precios publicados de una empresa.
-   * @param {string} empresa  "FAREX" o "Reciclean" (nombre_publico en la base)
-   * @param {string} [sucursal] filtra por sucursal; omitir para traer todas
+   * Trae los precios publicados.
+   * @param {object} opc
+   *   opc.empresa   {string} "farex" | "reciclean_spa"  (empresa_id, estable)
+   *   opc.sucursal  {string} sucursal_id, opcional
+   *   opc.grupo     {string} etiqueta de grupo, opcional
    */
-  function obtener(empresa, sucursal) {
-    var q = cliente()
-      .from("precios_publicos")
-      .select("material, sucursal, precio, actualizado")
-      .eq("empresa", empresa)
-      .order("material");
-    if (sucursal) q = q.eq("sucursal", sucursal);
-
-    return q.then(function (res) {
-      if (res.error) {
-        console.error("[precios] ", res.error.message);
-        return [];
-      }
-      return res.data || [];
-    });
+  function obtener(opc) {
+    opc = opc || {};
+    var q = "precios_publicos?select=" + COLUMNAS + "&order=grupo_orden.asc,material.asc";
+    if (opc.empresa)  q += "&empresa_id=eq." + encodeURIComponent(opc.empresa);
+    if (opc.sucursal) q += "&sucursal_id=eq." + encodeURIComponent(opc.sucursal);
+    if (opc.grupo)    q += "&grupo=eq." + encodeURIComponent(opc.grupo);
+    return pedir(q);
   }
 
-  /** Pinta una tabla simple y sin dependencias dentro del selector indicado. */
-  function montar(selector, empresa, sucursal) {
-    var cont = typeof selector === "string" ? document.querySelector(selector) : selector;
-    if (!cont) return Promise.resolve([]);
-    cont.innerHTML = '<p style="color:#78716c">Cargando precios…</p>';
+  /**
+   * Búsqueda difusa por texto (tolera errores de tipeo). Pensada para el chatbot
+   * o un buscador global; el widget filtra en memoria, que es instantáneo.
+   */
+  function buscar(texto, empresa, limite) {
+    return fetch(URL_BASE + "rpc/f_buscar_precio_publico", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, cabeceras()),
+      body: JSON.stringify({
+        p_texto: texto || "",
+        p_empresa: empresa || null,
+        p_limite: limite || 20
+      })
+    }).then(function (r) { return r.ok ? r.json() : []; });
+  }
 
-    return obtener(empresa, sucursal).then(function (filas) {
-      if (!filas.length) {
-        cont.innerHTML = '<p style="color:#78716c">No hay precios publicados por ahora.</p>';
-        return filas;
-      }
-      var html =
-        '<table style="width:100%;border-collapse:collapse;font-family:inherit">' +
-        '<thead><tr style="text-align:left;border-bottom:2px solid #e7e5e4">' +
-        '<th style="padding:8px">Material</th>' +
-        '<th style="padding:8px">Sucursal</th>' +
-        '<th style="padding:8px;text-align:right">Precio por kg</th>' +
-        "</tr></thead><tbody>";
+  /* ------------------------------------------------------------- utilidades - */
 
-      filas.forEach(function (f) {
-        html +=
-          '<tr style="border-bottom:1px solid #f5f5f4">' +
-          '<td style="padding:8px">' + escapar(f.material) + "</td>" +
-          '<td style="padding:8px;color:#57534e">' + escapar(f.sucursal) + "</td>" +
-          '<td style="padding:8px;text-align:right;font-weight:700;color:#047857">' + clp(f.precio) + "</td>" +
-          "</tr>";
-      });
-
-      cont.innerHTML = html + "</tbody></table>";
-      return filas;
-    });
+  function clp(n) {
+    return n == null ? "—" : "$" + Number(n).toLocaleString("es-CL");
   }
 
   // Los nombres vienen de la base; se escapan antes de inyectarlos como HTML.
-  function escapar(s) {
-    var d = document.createElement("div");
+  function esc(s) {
+    var d = doc.createElement("div");
     d.textContent = s == null ? "" : String(s);
     return d.innerHTML;
   }
 
-  global.ReciPrecios = { obtener: obtener, montar: montar, clp: clp };
-})(window);
+  // Compara sin tildes ni mayúsculas, para que "aluminio" encuentre "Aluminio Perfil A".
+  // El rango va escrito con escapes \u para que el archivo sea ASCII puro: los editores
+  // de cPanel a veces guardan en otra codificación y corromperían los signos crudos.
+  var DIACRITICOS = new RegExp("[\\u0300-\\u036f]", "g");
+  function normalizar(s) {
+    return String(s == null ? "" : s)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(DIACRITICOS, "");
+  }
+
+  function fecha(iso) {
+    if (!iso) return "";
+    var p = String(iso).slice(0, 10).split("-");
+    return p.length === 3 ? p[2] + "-" + p[1] + "-" + p[0] : "";
+  }
+
+  // Lista única preservando el orden en que vienen las filas.
+  function unicos(filas, campo) {
+    var vistos = {}, out = [];
+    filas.forEach(function (f) {
+      if (f[campo] != null && !vistos[f[campo]]) { vistos[f[campo]] = 1; out.push(f[campo]); }
+    });
+    return out;
+  }
+
+  /* ----------------------------------------------------------------- estilo - */
+  // Se inyecta una sola vez y usa el prefijo .reci- para no chocar con el tema del
+  // sitio. Todo hereda font-family, así que se ve como el resto de la página.
+  var ESTILO = [
+    ".reci{font-family:inherit;color:inherit}",
+    ".reci-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}",
+    ".reci-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}",
+    ".reci-tab{padding:7px 14px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;",
+      "cursor:pointer;font-size:14px;line-height:1;color:#44403c}",
+    ".reci-tab[aria-selected=true]{background:#047857;border-color:#047857;color:#fff;font-weight:600}",
+    ".reci-input,.reci-select{padding:8px 12px;border:1px solid #d6d3d1;border-radius:8px;",
+      "font-size:14px;font-family:inherit;background:#fff;color:#292524}",
+    ".reci-input{flex:1;min-width:180px}",
+    ".reci-grupo{margin:18px 0 8px;font-size:13px;font-weight:700;text-transform:uppercase;",
+      "letter-spacing:.06em;color:#78716c}",
+    ".reci-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}",
+    ".reci-card{border:1px solid #e7e5e4;border-radius:10px;padding:12px 14px;background:#fff}",
+    ".reci-mat{font-weight:600;margin-bottom:6px;line-height:1.3}",
+    ".reci-precio{font-size:20px;font-weight:800;color:#047857;line-height:1.1}",
+    ".reci-unidad{font-size:12px;font-weight:600;color:#78716c;margin-left:2px}",
+    ".reci-fecha{font-size:11px;color:#a8a29e;margin-top:6px}",
+    ".reci-aviso{padding:22px;text-align:center;color:#78716c;border:1px dashed #d6d3d1;border-radius:10px}",
+    ".reci-pie{margin-top:16px;font-size:12px;color:#a8a29e}",
+    "@media(max-width:480px){.reci-grid{grid-template-columns:1fr}}"
+  ].join("");
+
+  function asegurarEstilo() {
+    if (doc.getElementById("reci-estilo")) return;
+    var s = doc.createElement("style");
+    s.id = "reci-estilo";
+    s.textContent = ESTILO;
+    doc.head.appendChild(s);
+  }
+
+  /* ----------------------------------------------------------------- widget - */
+
+  /**
+   * Pinta el widget completo: pestañas por sucursal, buscador, filtro por grupo y
+   * tarjetas de precio.
+   * @param {string|Element} selector
+   * @param {object} opc  opc.empresa (obligatorio), opc.sucursal (fija una y oculta tabs)
+   */
+  function montar(selector, opc) {
+    opc = opc || {};
+    var cont = typeof selector === "string" ? doc.querySelector(selector) : selector;
+    if (!cont) return Promise.resolve([]);
+
+    asegurarEstilo();
+    cont.className = (cont.className ? cont.className + " " : "") + "reci";
+    cont.innerHTML = '<div class="reci-aviso">Cargando precios…</div>';
+
+    return obtener(opc).then(function (filas) {
+      if (!filas.length) {
+        // Sin datos no es un fallo: gerencia todavía no publica nada para esta empresa.
+        cont.innerHTML = '<div class="reci-aviso">Aún no hay precios publicados. ' +
+                         "Escríbenos y te cotizamos tu material.</div>";
+        return filas;
+      }
+
+      var sucursales = unicos(filas, "sucursal");
+      var grupos = unicos(filas, "grupo");
+      var estado = { sucursal: sucursales[0], grupo: "", texto: "" };
+
+      cont.innerHTML =
+        (sucursales.length > 1
+          ? '<div class="reci-tabs" role="tablist">' + sucursales.map(function (s, i) {
+              return '<button class="reci-tab" role="tab" data-suc="' + esc(s) + '" ' +
+                     'aria-selected="' + (i === 0) + '">' + esc(s) + "</button>";
+            }).join("") + "</div>"
+          : "") +
+        '<div class="reci-barra">' +
+          '<input class="reci-input" type="search" placeholder="Buscar material…" ' +
+                 'aria-label="Buscar material">' +
+          (grupos.length > 1
+            ? '<select class="reci-select" aria-label="Filtrar por categoría">' +
+              '<option value="">Todas las categorías</option>' +
+              grupos.map(function (g) {
+                return '<option value="' + esc(g) + '">' + esc(g) + "</option>";
+              }).join("") + "</select>"
+            : "") +
+        "</div>" +
+        '<div class="reci-lista"></div>' +
+        '<p class="reci-pie">Los valores son referenciales por kilo y pueden variar según ' +
+        "el estado y la cantidad del material.</p>";
+
+      var $lista = cont.querySelector(".reci-lista");
+      var $input = cont.querySelector(".reci-input");
+      var $select = cont.querySelector(".reci-select");
+
+      function pintar() {
+        var t = normalizar(estado.texto);
+        var vis = filas.filter(function (f) {
+          if (sucursales.length > 1 && f.sucursal !== estado.sucursal) return false;
+          if (estado.grupo && f.grupo !== estado.grupo) return false;
+          return !t || normalizar(f.material).indexOf(t) !== -1 ||
+                      normalizar(f.grupo).indexOf(t) !== -1;
+        });
+
+        if (!vis.length) {
+          $lista.innerHTML = '<div class="reci-aviso">No encontramos materiales con ese ' +
+                             "criterio. Prueba con otra palabra.</div>";
+          return;
+        }
+
+        // Las filas ya vienen ordenadas por grupo_orden desde la base; solo hay que
+        // cortar el encabezado cuando cambia el grupo.
+        var html = "", grupoActual = null;
+        vis.forEach(function (f) {
+          if (f.grupo !== grupoActual) {
+            if (grupoActual !== null) html += "</div>";
+            html += '<div class="reci-grupo">' + esc(f.grupo) + '</div><div class="reci-grid">';
+            grupoActual = f.grupo;
+          }
+          html +=
+            '<div class="reci-card">' +
+              '<div class="reci-mat">' + esc(f.material) + "</div>" +
+              '<div class="reci-precio">' + clp(f.precio) +
+                '<span class="reci-unidad">/' + esc(f.unidad || "kg") + "</span></div>" +
+              (f.actualizado ? '<div class="reci-fecha">Vigente desde ' + fecha(f.actualizado) + "</div>" : "") +
+            "</div>";
+        });
+        $lista.innerHTML = html + (grupoActual !== null ? "</div>" : "");
+      }
+
+      cont.querySelectorAll(".reci-tab").forEach(function (b) {
+        b.addEventListener("click", function () {
+          estado.sucursal = b.getAttribute("data-suc");
+          cont.querySelectorAll(".reci-tab").forEach(function (o) {
+            o.setAttribute("aria-selected", String(o === b));
+          });
+          pintar();
+        });
+      });
+      if ($input)  $input.addEventListener("input",  function () { estado.texto = $input.value; pintar(); });
+      if ($select) $select.addEventListener("change", function () { estado.grupo = $select.value; pintar(); });
+
+      pintar();
+      return filas;
+    }).catch(function (e) {
+      console.error("[ReciPrecios]", e);
+      cont.innerHTML = '<div class="reci-aviso">No pudimos cargar los precios en este ' +
+                       "momento. Vuelve a intentarlo en unos minutos.</div>";
+      return [];
+    });
+  }
+
+  global.ReciPrecios = {
+    montar: montar,
+    obtener: obtener,
+    buscar: buscar,
+    clp: clp
+  };
+})(window, document);
