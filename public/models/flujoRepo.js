@@ -92,6 +92,27 @@ export async function editarFila({ id, materialId = null, precioRecibido = null,
   return data;
 }
 
+// Cuántos registros caerían al vaciar, ANTES de vaciar. Devuelve
+// { a_borrar, publicados_protegidos, total } para poder avisarlo con números concretos.
+export async function contarVaciadoHistorial({ antesDe = null, incluirPublicados = false } = {}) {
+  const { data, error } = await getClient().rpc("f_historial_vaciar_conteo", {
+    p_antes_de: antesDe, p_incluir_publicados: incluirPublicados,
+  });
+  if (error) throw new Error(traducir(error.message));
+  return data || { a_borrar: 0, publicados_protegidos: 0, total: 0 };
+}
+
+// Vaciado del historial. Solo gerencia (lo valida el RPC, no la interfaz).
+// Por defecto NO borra los borradores publicados: son el único rastro de qué carga
+// produjo qué precio vigente. Hay que pedir explícitamente incluirlos.
+export async function vaciarHistorial({ motivo, antesDe = null, incluirPublicados = false }) {
+  const { data, error } = await getClient().rpc("f_historial_vaciar", {
+    p_motivo: motivo, p_antes_de: antesDe, p_incluir_publicados: incluirPublicados,
+  });
+  if (error) throw new Error(traducir(error.message));
+  return data;
+}
+
 // Catálogos para los selectores del flujo.
 export async function catalogos() {
   const sb = getClient();
@@ -109,6 +130,8 @@ export async function catalogos() {
 // Los errores de Postgres llegan en jerga técnica; gerencia no tiene por qué leerla.
 function traducir(msg = "") {
   if (/solo gerencia publica/i.test(msg)) return "Solo gerencia puede publicar precios.";
+  if (/vaciar el historial/i.test(msg)) return "Solo gerencia puede vaciar el historial.";
+  if (/Escribe el motivo/i.test(msg)) return msg;
   if (/No autorizado/i.test(msg)) return "No tienes permiso para hacer esto.";
   if (/comprar con perdida|comprar con pérdida/i.test(msg)) return msg;
   if (/pendiente/i.test(msg) && /estado actual/i.test(msg)) return msg;

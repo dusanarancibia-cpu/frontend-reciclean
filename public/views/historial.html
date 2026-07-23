@@ -19,6 +19,11 @@
       <option value="descartado">Descartado</option>
     </select>
     <span id="hisResumen" class="text-xs text-stone-500"></span>
+    <!-- Solo gerencia. El controlador lo muestra; el RPC lo vuelve a validar en el
+         servidor, así que ocultarlo es comodidad, no seguridad. -->
+    <button id="hisVaciar" class="hidden bg-white border border-rose-300 text-rose-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">
+      🗑️ Vaciar historial
+    </button>
   </div>
 
   <!-- Descarte en lote. Vivía en la desaparecida sección "Pendientes"; se trasladó acá

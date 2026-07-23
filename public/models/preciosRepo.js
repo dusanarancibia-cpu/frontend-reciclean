@@ -100,9 +100,33 @@ export async function publicarMaterial({ empresaId, materialId, visible }) {
   return data;
 }
 
+// Cuántos precios vigentes se retirarían, para avisarlo antes de ejecutar.
+export async function contarReinicioPrecios(sucursalId = null) {
+  const { data, error } = await getClient()
+    .rpc("f_precios_reiniciar_conteo", { p_sucursal_id: sucursalId });
+  if (error) throw new Error(traducirError(error.message));
+  return Number(data) || 0;
+}
+
+// REINICIO DE PRECIOS (soft reset). Deja la vitrina en blanco para cargar una lista nueva.
+//
+// No borra filas: cierra la vigencia de los precios actuales. El histórico y la auditoría
+// se conservan, y la tabla maestra de materiales no se toca. Las vistas (pública y de
+// panel) filtran `vigencia_hasta IS NULL`, así que el efecto es inmediato.
+// `sucursalId` permite reiniciar una sola sucursal en vez de todas.
+export async function reiniciarPrecios({ motivo, sucursalId = null }) {
+  const { data, error } = await getClient().rpc("f_precios_reiniciar", {
+    p_motivo: motivo, p_sucursal_id: sucursalId,
+  });
+  if (error) throw new Error(traducirError(error.message));
+  return data;
+}
+
 // Los errores de Postgres llegan en jerga técnica; la gerencia no tiene por qué leerla.
 function traducirError(msg = "") {
   if (/rol gerencia/i.test(msg)) return "No tienes permiso para cambiar precios. Solo gerencia puede hacerlo.";
+  if (/solo gerencia reinicia/i.test(msg)) return "Solo gerencia puede reiniciar los precios.";
+  if (/Escribe el motivo/i.test(msg)) return msg;
   if (/comprar con perdida|comprar con pérdida/i.test(msg)) return msg; // el RPC ya explica en lenguaje claro
   if (/Falta el precio recibido/i.test(msg))
     return "Este material aún no tiene registrado el precio que pagan las fundiciones. Cárgalo primero.";

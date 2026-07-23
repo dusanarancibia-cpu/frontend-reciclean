@@ -11,8 +11,10 @@
 //
 // Las columnas de sucursal se construyen desde los datos: agregar una sucursal nueva no
 // requiere tocar código ni la vista.
-import { listarPrecios, listarVitrina, publicarMaterial, rolDesdeToken } from "../models/preciosRepo.js";
+import { listarPrecios, listarVitrina, publicarMaterial, rolDesdeToken,
+         reiniciarPrecios, contarReinicioPrecios } from "../models/preciosRepo.js";
 import { montarTabla } from "../js/listaTabla.js";
+import { abrirModal, cerrarModal } from "../components/modal.js";
 import { escapeHTML, normalizarTexto } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
@@ -61,6 +63,7 @@ export async function mountPublicados() {
     });
 
     cablearControles();
+    cablearReinicio();
     actualizarResumen();
   } catch (e) {
     body.innerHTML = filaVacia("❌ No pude cargar los publicados: " + esc(e.message));
@@ -231,6 +234,81 @@ function cablearControles() {
   $("publicadosSucursal")?.addEventListener("change", () => {
     pintarCabecera();
     _tabla.setRows(visibles());
+  });
+}
+
+// ── Reinicio de precios (solo gerencia) ───────────────────────────────────────
+// "Soft reset": no borra filas, cierra la vigencia de los precios actuales. La vitrina
+// queda en blanco al instante porque las vistas filtran `vigencia_hasta IS NULL`, pero
+// el histórico, la auditoría y la tabla de materiales quedan intactos.
+//
+// Respeta el filtro de sucursal de la pantalla: si hay una elegida, reinicia solo esa.
+// Es la diferencia entre vaciar una sucursal y vaciarlas las cuatro.
+function cablearReinicio() {
+  const btn = $("publicadosReiniciar");
+  if (!btn) return;
+  if (_rol !== "gerencia") { btn.classList.add("hidden"); return; }
+  btn.classList.remove("hidden");
+
+  btn.addEventListener("click", async () => {
+    const sucId = $("publicadosSucursal")?.value || null;
+    const sucNombre = _sucursales.find((s) => s.sucursal_id === sucId)?.nombre;
+
+    let cuantos;
+    try {
+      cuantos = await contarReinicioPrecios(sucId);
+    } catch (e) {
+      return abrirModal({ titulo: "No se pudo consultar", cuerpoHTML: `<p>${esc(e.message)}</p>` });
+    }
+    if (!cuantos) {
+      return abrirModal({
+        titulo: "Nada que reiniciar",
+        cuerpoHTML: `<p>No hay precios vigentes${sucNombre ? " en " + esc(sucNombre) : ""}.</p>`,
+      });
+    }
+
+    abrirModal({
+      titulo: "Reiniciar precios",
+      cuerpoHTML: `
+        <p>Se retirarán <b>${cuantos}</b> precio(s) vigente(s)${
+          sucNombre ? ` de <b>${esc(sucNombre)}</b>` : " de <b>todas las sucursales</b>"}.</p>
+        <p style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;margin-top:10px;font-size:13px;color:#065f46">
+          🛡️ El catálogo de materiales no se toca, y el histórico y la auditoría se conservan.
+          Lo que se marcó como visible en cada web se mantiene: al cargar la lista nueva,
+          los materiales reaparecen solos.
+        </p>
+        <p style="font-size:13px;color:#78716c;margin-top:10px">
+          Las webs públicas quedarán sin precios hasta que cargues la lista nueva.</p>
+        <label style="display:block;margin-top:12px">
+          <span style="font-size:12px;color:#57534e">Motivo (queda en la auditoría)</span>
+          <input id="pubReiMotivo" placeholder="ej. lista de precios de agosto"
+            style="width:100%;padding:8px;border:1px solid #d6d3d1;border-radius:6px;margin-top:4px">
+        </label>
+        <div id="pubReiError" style="display:none;color:#be123c;font-size:13px;font-weight:600;margin-top:8px"></div>`,
+      acciones: [
+        { texto: "Cancelar" },
+        { texto: "Reiniciar", primario: true, cerrar: false, onClick: async () => {
+            const err = $("pubReiError");
+            const motivo = ($("pubReiMotivo")?.value || "").trim();
+            if (!motivo) {
+              err.textContent = "Escribe el motivo para continuar.";
+              err.style.display = "block";
+              return;
+            }
+            try {
+              const res = await reiniciarPrecios({ motivo, sucursalId: sucId });
+              cerrarModal();
+              await mountPublicados();   // recarga todo: precios y visibilidad
+              const el = $("publicadosResumen");
+              if (el) el.textContent = `♻️ ${res.precios_retirados} precio(s) retirados. ` +
+                `Carga la lista nueva desde Carga Manual.`;
+            } catch (e) {
+              err.textContent = e.message;
+              err.style.display = "block";
+            }
+          } },
+      ],
+    });
   });
 }
 

@@ -102,3 +102,88 @@ export function montarTabla(cfg) {
     render,
   };
 }
+
+// HELPER · Selección múltiple con "seleccionar todos" en el encabezado.
+//
+// Pensado para usarse junto a montarTabla: se llama sincronizar() desde su `onRender`,
+// porque cada repintado destruye los <input> anteriores y hay que volver a cablearlos.
+//
+// DECISIONES QUE IMPORTAN:
+//  · La selección vive en un Set de ids, no en el DOM. Así SOBREVIVE al cambio de página,
+//    al reordenar y al filtrar; si dependiera de los checkboxes, cambiar de página
+//    "perdería" lo marcado sin avisar.
+//  · El maestro actúa solo sobre las filas VISIBLES de la página actual. Marcar en
+//    silencio 1.000 registros que el usuario no tiene a la vista es una trampa.
+//  · Los checkboxes deshabilitados se ignoran siempre (filas no accionables).
+//  · El maestro queda en estado indeterminado (guion) cuando hay selección parcial.
+//
+// IMPORTANTE: el <th> que contiene el checkbox maestro NO debe llevar `data-sort`.
+// pintarFlechas() reescribe el textContent de los <th> ordenables y borraría el input.
+//
+// Uso:
+//   const seleccion = conectarSeleccion({
+//     tbody: document.getElementById("hisBody"),
+//     master: document.getElementById("hisTodos"),
+//     clase: "hisChk",                 // clase de los checkbox de fila
+//     onCambio: (n) => pintarBarra(n), // opcional: reaccionar al total marcado
+//   });
+//   // en renderRow: <input type="checkbox" class="hisChk" data-id="123">
+//   // en onRender:  seleccion.sincronizar()
+export function conectarSeleccion({ tbody, master = null, clase, onCambio = null }) {
+  const marcados = new Set();
+
+  const deFila = () => Array.from(tbody.querySelectorAll("." + clase));
+  const accionables = () => deFila().filter((c) => !c.disabled);
+  const avisar = () => { if (onCambio) onCambio(marcados.size); };
+
+  // El maestro refleja el estado de lo visible: todo / nada / parcial.
+  function pintarMaestro() {
+    if (!master) return;
+    const items = accionables();
+    const n = items.filter((c) => c.checked).length;
+    master.disabled = items.length === 0;
+    master.checked = items.length > 0 && n === items.length;
+    master.indeterminate = n > 0 && n < items.length;
+  }
+
+  // Se llama tras cada repintado de la tabla: restaura los marcados y recablea eventos.
+  function sincronizar() {
+    deFila().forEach((chk) => {
+      const id = chk.dataset.id;
+      if (!chk.disabled) chk.checked = marcados.has(id);
+      chk.onchange = () => {
+        if (chk.checked) marcados.add(id); else marcados.delete(id);
+        pintarMaestro();
+        avisar();
+      };
+    });
+    pintarMaestro();
+    avisar();
+  }
+
+  if (master) {
+    master.onchange = () => {
+      accionables().forEach((chk) => {
+        chk.checked = master.checked;
+        if (master.checked) marcados.add(chk.dataset.id); else marcados.delete(chk.dataset.id);
+      });
+      master.indeterminate = false;
+      avisar();
+    };
+  }
+
+  return {
+    sincronizar,
+    // Los ids salen como string (vienen de data-id). `numericos()` los devuelve como
+    // número, que es lo que esperan los RPC cuando la clave es bigint.
+    seleccionados: () => [...marcados],
+    numericos: () => [...marcados].map(Number).filter(Number.isFinite),
+    total: () => marcados.size,
+    limpiar() {
+      marcados.clear();
+      deFila().forEach((c) => { c.checked = false; });
+      pintarMaestro();
+      avisar();
+    },
+  };
+}

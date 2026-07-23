@@ -33,6 +33,11 @@
     <label class="flex items-center gap-1 text-xs text-stone-600">
       <input type="checkbox" id="publicadosSoloVisibles"> Solo los que están en alguna web
     </label>
+    <!-- Solo gerencia. El controlador lo muestra; el RPC revalida el rol en el servidor,
+         así que ocultarlo es comodidad, no seguridad. -->
+    <button id="publicadosReiniciar" class="hidden bg-white border border-rose-300 text-rose-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">
+      ♻️ Reiniciar precios
+    </button>
   </div>
 
   <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
