@@ -17,6 +17,22 @@ const BASE = ""; // v2 raíz limpia: las vistas viven en /views/*.html
 const $sidebar = document.getElementById("sidebar");
 const $navbar = document.getElementById("navbar");
 const $content = document.getElementById("content");
+const $backdrop = document.getElementById("app-backdrop");
+
+// Menú lateral: en móvil (<768px) es un drawer con backdrop; en escritorio se colapsa.
+const esMovil = () => window.matchMedia("(max-width: 767px)").matches;
+function cerrarDrawer() {
+  $sidebar.classList.remove("open");
+  if ($backdrop) $backdrop.classList.remove("show");
+}
+function toggleMenu() {
+  if (esMovil()) {
+    const abierto = $sidebar.classList.toggle("open");
+    if ($backdrop) $backdrop.classList.toggle("show", abierto);
+  } else {
+    $sidebar.classList.toggle("collapsed");
+  }
+}
 
 // Tabla de rutas. `view` = archivo en /views. `mount` = controlador opcional.
 // Las pantallas aún no migradas reutilizan la plantilla "inicio" como placeholder.
@@ -48,6 +64,7 @@ async function loadView(name) {
 async function navigate(route) {
   const r = ROUTES[route] || ROUTES[DEFAULT];
   const key = ROUTES[route] ? route : DEFAULT;
+  cerrarDrawer(); // en móvil, al elegir una vista se cierra el menú
   setActive($sidebar, key);
   if (location.hash.slice(1).split("?")[0] !== key)
     history.replaceState(null, "", `#${key}${location.search}`);
@@ -87,9 +104,9 @@ async function boot() {
   // Reloj en vivo (siempre hora de Chile): actualiza header y footer cada 30 s.
   iniciarRelojChile();
 
-  // Botón hamburguesa ☰ · alterna .collapsed en el sidebar (el contenido se expande solo)
-  $navbar.querySelector("#navMenuBtn")
-    .addEventListener("click", () => $sidebar.classList.toggle("collapsed"));
+  // Botón hamburguesa ☰ · drawer en móvil / colapso en escritorio
+  $navbar.querySelector("#navMenuBtn").addEventListener("click", toggleMenu);
+  if ($backdrop) $backdrop.addEventListener("click", cerrarDrawer);
 
   // Widget flotante de Diego (siempre disponible, sobre cualquier vista)
   renderDiegoWidget(document.getElementById("diego-widget"));

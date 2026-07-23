@@ -45,7 +45,7 @@
 <body class="bg-stone-100 text-stone-800">
 
   <div class="flex min-h-screen">
-    <!-- Menú lateral izquierdo (inyectado por components/sidebar.js) -->
+    <!-- Menú lateral izquierdo (inyectado por components/sidebar.js). En móvil es un drawer. -->
     <aside id="sidebar" class="app-sidebar bg-stone-900 text-stone-200 w-64 shrink-0 flex flex-col"></aside>
 
     <!-- Columna principal -->
@@ -57,8 +57,17 @@
       <main id="content" class="flex-1 overflow-y-auto">
         <div class="p-8 text-stone-400 text-sm">Cargando…</div>
       </main>
+
+      <!-- Footer global (visible en todas las vistas) -->
+      <footer class="border-t border-stone-200 bg-white text-stone-500 text-xs px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <span>Grupo Reciclean-Farex · Panel de precios</span>
+        <span class="reloj-chile" title="Hora de Chile continental">—</span>
+      </footer>
     </div>
   </div>
+
+  <!-- Backdrop del drawer en móvil (cierra el menú al tocar fuera) -->
+  <div id="app-backdrop"></div>
 
   <!-- Widget flotante de Diego (inyectado por components/diegoWidget.js) -->
   <div id="diego-widget"></div>

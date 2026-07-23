@@ -6,7 +6,8 @@ import { getClient } from "../models/supabase.js";
 
 export function renderNavbar(mountEl) {
   mountEl.innerHTML = `
-    <button id="navMenuBtn" class="text-stone-500 text-xl leading-none px-1 hover:text-stone-800" title="Colapsar/expandir menú">☰</button>
+    <button id="navMenuBtn" class="text-stone-500 text-xl leading-none px-1 hover:text-stone-800" title="Menú">☰</button>
+    <span class="font-bold text-stone-800 sm:hidden">Reciclean</span>
     <div class="ml-auto flex items-center gap-3">
       <span class="reloj-chile text-[11px] text-stone-500 hidden sm:inline" title="Hora de Chile continental">—</span>
       <div class="flex items-center gap-2">
