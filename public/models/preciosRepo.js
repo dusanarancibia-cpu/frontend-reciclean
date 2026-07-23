@@ -25,7 +25,8 @@ export async function listarPrecios() {
   const { data, error } = await getClient()
     .from("precios_panel")
     .select("id, material_id, material, nombre_publico, sucursal_id, sucursal, " +
-            "precio_publicado_clp, precio_recibido_clp, margen_pct, requiere_revision, " +
+            "precio_publicado_clp, precio_recibido_clp, margen_pct, flete_clp, iva_pct, " +
+            "spread_pct, precio_ejecutivo_clp, precio_maximo_clp, redondeo, requiere_revision, " +
             "vigencia_desde, creado_por, updated_at, mi_rol")
     .order("material");
   if (error) throw new Error(error.message);
@@ -92,6 +93,30 @@ export async function listarVitrina() {
   return [...mapa.values()];
 }
 
+// Historial de variaciones de precio (auditoría). Fuente: public.historial_precios, que
+// enmascara los valores internos salvo gerencia. Ordenado del más reciente al más antiguo.
+// El buscador filtra en el servidor por material/usuario/sucursal (columnas indexables).
+export async function listarHistorialPrecios({ texto = "", limite = 1000 } = {}) {
+  let q = getClient().from("historial_precios").select("*");
+  if (texto && texto.trim()) {
+    const t = texto.trim();
+    q = q.or(`material.ilike.%${t}%,actor_email.ilike.%${t}%,sucursal.ilike.%${t}%`);
+  }
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(limite);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+// Retira (cierra vigencia de) un precio de una sucursal. El RPC solo lo permite si el
+// material no está visible en ninguna web; conserva el historial y no rompe FK.
+export async function retirarPrecio({ materialId, sucursalId, motivo = null }) {
+  const { data, error } = await getClient().rpc("f_precio_retirar", {
+    p_material_id: materialId, p_sucursal_id: sucursalId, p_motivo: motivo,
+  });
+  if (error) throw new Error(traducirError(error.message));
+  return data;
+}
+
 // Enciende o apaga un material en la vitrina pública de una empresa.
 export async function publicarMaterial({ empresaId, materialId, visible }) {
   const { data, error } = await getClient().rpc("f_publicar_material", {
@@ -127,6 +152,8 @@ export async function reiniciarPrecios({ motivo, sucursalId = null }) {
 function traducirError(msg = "") {
   if (/rol gerencia/i.test(msg)) return "No tienes permiso para cambiar precios. Solo gerencia puede hacerlo.";
   if (/solo gerencia reinicia/i.test(msg)) return "Solo gerencia puede reiniciar los precios.";
+  if (/solo gerencia retira/i.test(msg)) return "Solo gerencia puede retirar precios.";
+  if (/visible en alguna web/i.test(msg)) return "Primero quita el material de las webs (casillas FAREX/Reciclean); luego podrás retirar su precio.";
   if (/Escribe el motivo/i.test(msg)) return msg;
   if (/comprar con perdida|comprar con pérdida/i.test(msg)) return msg; // el RPC ya explica en lenguaje claro
   if (/Falta el precio recibido/i.test(msg))

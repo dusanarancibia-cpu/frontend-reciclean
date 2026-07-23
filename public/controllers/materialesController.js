@@ -9,6 +9,7 @@
 import { listarPrecios, actualizarPrecio } from "../models/preciosRepo.js";
 import { montarTabla } from "../js/listaTabla.js";
 import { activarEdicion } from "../components/precioCelda.js";
+import { abrirModal } from "../components/modal.js";
 import { escapeHTML, horaChile } from "../js/util.js";
 import { rolActual } from "../js/permisos.js";
 
@@ -81,15 +82,64 @@ function renderRow(r) {
         data-valor="${r.precio_publicado_clp ?? ""}">${clp(r.precio_publicado_clp)}</td>
     <td class="px-4 py-2.5 text-right text-stone-600 matSoloGerencia">${clp(r.precio_recibido_clp)}</td>
     <td class="px-4 py-2.5 text-right text-stone-600 matSoloGerencia">${pct(r.margen_pct)}</td>
-    <td class="px-4 py-2.5 text-stone-500 text-xs">${r.vigencia_desde || "—"}${
-      r.creado_por ? " · " + esc(r.creado_por) : ""}</td>
+    <td class="px-4 py-2.5 text-stone-500 text-xs whitespace-nowrap">${r.vigencia_desde || "—"}${
+      r.creado_por ? " · " + esc(r.creado_por) : ""}
+      <button type="button" class="matDetalle" data-mat="${esc(r.material_id)}" data-suc="${esc(r.sucursal_id)}"
+        title="Ver desglose de IVA, flete, márgenes y costos"
+        style="margin-left:6px;border:1px solid #d6d3d1;background:#fff;border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:#0f766e;font-weight:600">Detalle</button>
+    </td>
   </tr>`;
+}
+
+// ── Detalle de precio (punto 6): desglose de IVA, flete, márgenes y costos ─────
+const detFila = (etq, val) =>
+  `<tr><td style="padding:4px 0;color:#57534e">${etq}</td><td style="padding:4px 0;text-align:right;font-weight:600">${val}</td></tr>`;
+
+function abrirDetalle(r) {
+  if (!r) return;
+  const soloGerencia = _rol === "gerencia";
+  // Los campos internos (costo/margen/flete) llegan null desde la base si no eres gerencia.
+  const interno = soloGerencia
+    ? detFila("Precio Venta (fundición nos paga)", clp(r.precio_recibido_clp)) +
+      detFila("Margen", pct(r.margen_pct)) +
+      detFila("Flete", clp(r.flete_clp)) +
+      detFila("Retención IVA", r.iva_pct == null ? "—" : Number(r.iva_pct).toFixed(0) + "%") +
+      detFila("Spread Lista/Máx", r.spread_pct == null ? "—" : Number(r.spread_pct).toFixed(0) + "%")
+    : `<tr><td colspan="2" style="padding:6px 0;color:#a8a29e;font-size:12px">
+         Los costos internos y márgenes solo los ve gerencia.</td></tr>`;
+  abrirModal({
+    titulo: `Detalle · ${esc(r.material)} — ${esc(r.sucursal)}`,
+    cuerpoHTML: `
+      <table style="width:100%;font-size:14px;border-collapse:collapse">
+        <tr><td colspan="2" style="padding:2px 0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#a8a29e">Precio público</td></tr>
+        ${detFila("Precio publicado (a la gente)", `<span style="color:#047857">${clp(r.precio_publicado_clp)}</span>`)}
+        ${detFila("P. Ejecutivo (negociable)", clp(r.precio_ejecutivo_clp))}
+        ${detFila("P. Máximo", clp(r.precio_maximo_clp))}
+        <tr><td colspan="2" style="padding:10px 0 2px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#a8a29e">Costos y márgenes</td></tr>
+        ${interno}
+        <tr><td colspan="2" style="padding:10px 0 2px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#a8a29e">Trazabilidad</td></tr>
+        ${detFila("Vigente desde", r.vigencia_desde || "—")}
+        ${detFila("Ingresado por", esc(r.creado_por || "—"))}
+        ${detFila("Redondeo", r.redondeo ? esc(r.redondeo) : "—")}
+      </table>`,
+  });
 }
 
 // Se ejecuta en cada re-render de la tabla (paginar, ordenar, filtrar).
 function cablearCeldas(filasPagina) {
   ocultarColumnasSensibles();
-  if (_rol !== "gerencia") return; // sin permiso no se cablea nada: la UI ni siquiera lo ofrece
+
+  // Botón "Detalle": disponible para todos los roles (los costos ya vienen enmascarados
+  // por la base si no eres gerencia). Va antes del corte por rol.
+  document.querySelectorAll("#matBody .matDetalle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const r = filasPagina.find(
+        (f) => f.material_id === btn.dataset.mat && f.sucursal_id === btn.dataset.suc);
+      abrirDetalle(r);
+    });
+  });
+
+  if (_rol !== "gerencia") return; // sin permiso no se cablea edición: la UI ni siquiera lo ofrece
 
   document.querySelectorAll("#matBody .matPublicado").forEach((td) => {
     const tr = td.closest("tr");

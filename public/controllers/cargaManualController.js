@@ -20,15 +20,29 @@ const INP = "border border-stone-300 rounded px-2 py-1.5 text-sm bg-white";
 const normId = (s) => String(s ?? "").toLowerCase().normalize("NFD")
   .replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 
-let _optMat = "";
-let _matByName = new Map();
+let _optMat = "";       // <option>s del datalist (autocompletado)
+let _matByName = new Map();  // normId(nombre) → material_id
+let _nameById = new Map();   // material_id → nombre (para mostrar el canónico)
 let _email = null;
 
+// Fecha de hoy en formato YYYY-MM-DD, con la hora LOCAL (no UTC, que cerca de medianoche
+// devolvería el día equivocado). La vigencia del modelo es por día.
+function hoyISO() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// El material se ingresa por un combobox (input + <datalist>): filtra en tiempo real a
+// medida que se escribe, y acepta seleccionar de la lista. El value es el NOMBRE; el
+// material_id se resuelve al enviar contra _matByName. Ventaja sobre el <select>: se puede
+// escribir para encontrar entre cientos de materiales sin scrollear.
 function filaHTML() {
   return `<tr class="cmRow hover:bg-stone-50">
-    <td class="px-3 py-2"><select class="cmMat ${INP}" style="width:100%"><option value="">— material —</option>${_optMat}</select></td>
+    <td class="px-3 py-2"><input class="cmMat ${INP}" list="cmMatList" autocomplete="off"
+        placeholder="Escribe para buscar…" style="width:100%"></td>
     <td class="px-3 py-2"><input type="number" class="cmPrecio ${INP}" style="width:100%;text-align:right" min="0" step="1" placeholder="0"></td>
-    <td class="px-3 py-2"><input type="date" class="cmFecha ${INP}" style="width:100%"></td>
+    <td class="px-3 py-2"><input type="date" class="cmFecha ${INP}" style="width:100%" value="${hoyISO()}"></td>
     <td class="px-2 py-2 text-center">
       <button type="button" class="cmDel" title="Quitar fila"
         style="background:#fff;border:1px solid #fca5a5;color:#b91c1c;width:28px;height:28px;border-radius:6px;font-weight:700;cursor:pointer">×</button>
@@ -135,7 +149,9 @@ function volcarFilas(objetos, etiquetaOrigen) {
   objetos.forEach((o) => {
     const matId = _matByName.get(normId(o.material)) || "";
     const tr = agregarFila();
-    if (matId) tr.querySelector(".cmMat").value = matId;
+    // El combobox muestra el NOMBRE: si se reconoció, el canónico del catálogo; si no, el
+    // texto crudo para que el usuario lo corrija a ojo (queda en ámbar).
+    tr.querySelector(".cmMat").value = matId ? (_nameById.get(matId) || o.material || "") : (o.material || "");
     const precio = parseNum(o.precio);
     if (Number.isFinite(precio)) tr.querySelector(".cmPrecio").value = precio;
     const fecha = aFechaISO(o.vigencia);
@@ -197,12 +213,16 @@ function recolectar() {
   const payloads = [];
   const errores = [];
   filas.forEach((tr, i) => {
-    const mat = tr.querySelector(".cmMat").value;
+    const nombre = tr.querySelector(".cmMat").value.trim();
+    const mat = _matByName.get(normId(nombre)) || "";   // resuelve nombre → material_id
     const precioTxt = tr.querySelector(".cmPrecio").value;
     const precio = parseFloat(precioTxt);
     const fecha = tr.querySelector(".cmFecha").value || null;
-    if (!mat && !precioTxt) return;                      // fila vacía: se ignora
-    if (!mat) { errores.push(`Fila ${i + 1}: elige el material.`); return; }
+    if (!nombre && !precioTxt) return;                   // fila vacía: se ignora
+    if (!mat) {
+      errores.push(`Fila ${i + 1}: material "${nombre}" no está en el catálogo (elígelo de la lista).`);
+      return;
+    }
     if (!Number.isFinite(precio) || precio <= 0) {
       errores.push(`Fila ${i + 1}: precio inválido.`); return;
     }
@@ -254,12 +274,16 @@ export async function mountCargaManual() {
     if (em) throw em;
 
     _email = sess?.user?.email || null;
+    // Opciones del datalist: el value es el NOMBRE (lo que se escribe y autocompleta).
     _optMat = (mats || []).map((m) =>
-      `<option value="${esc(m.material_id)}">${esc(m.nombre_interno)}</option>`).join("");
+      `<option value="${esc(m.nombre_interno)}"></option>`).join("");
     _matByName = new Map((mats || []).map((m) => [normId(m.nombre_interno), m.material_id]));
+    _nameById  = new Map((mats || []).map((m) => [m.material_id, m.nombre_interno]));
+    const dl = $("cmMatList");
+    if (dl) dl.innerHTML = _optMat;
 
     body.innerHTML = "";
-    agregarFila(); agregarFila();
+    agregarFila();   // arranca con UNA sola fila; el resto se agrega con "+ Agregar fila"
 
     $("cmAddRow").addEventListener("click", agregarFila);
     $("cmEnviar").addEventListener("click", onEnviar);

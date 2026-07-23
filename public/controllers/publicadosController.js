@@ -11,9 +11,10 @@
 //
 // Las columnas de sucursal se construyen desde los datos: agregar una sucursal nueva no
 // requiere tocar código ni la vista.
-import { listarPrecios, listarVitrina, publicarMaterial,
+import { listarPrecios, listarVitrina, publicarMaterial, actualizarPrecio, retirarPrecio,
          reiniciarPrecios, contarReinicioPrecios } from "../models/preciosRepo.js";
 import { montarTabla } from "../js/listaTabla.js";
+import { activarEdicion } from "../components/precioCelda.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { escapeHTML, normalizarTexto } from "../js/util.js";
 import { rolActual } from "../js/permisos.js";
@@ -114,7 +115,9 @@ function fusionar(precios, vitrina) {
     }
     f.precios[p.sucursal_id] = {
       precio: p.precio_publicado_clp,
+      recibido: p.precio_recibido_clp,     // para el tope al editar (solo gerencia lo ve)
       vigencia: p.vigencia_desde,
+      creado_por: p.creado_por,
       requiere_revision: !!p.requiere_revision,
     };
     if (p.requiere_revision) f.revisar = true;
@@ -159,18 +162,34 @@ function sorters() {
 }
 
 // ── Filas ─────────────────────────────────────────────────────────────────────
+const fechaCorta = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("-") : "—");
+
 function renderRow(r) {
   const editable = _rol === "gerencia";
+  const visibleEnAlguna = EMPRESAS.some((e) => r.visible[e.id]);
 
   const celdasPrecio = _sucursales.filter(enFiltroSucursal).map((s) => {
     const p = r.precios[s.sucursal_id];
     if (!p || p.precio == null) {
       return `<td class="px-4 py-2.5 text-right text-stone-300">—</td>`;
     }
-    // Los precios migrados del modelo antiguo tienen semántica dudosa: se marcan a la vista.
     const aviso = p.requiere_revision
       ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de confiar en él">⚠️</span>` : "";
-    return `<td class="px-4 py-2.5 text-right font-semibold text-emerald-700">${clp(p.precio)}${aviso}</td>`;
+    // Metadatos por precio (punto 3): vigencia + quién lo ingresó, bajo el valor.
+    const meta = `<div class="text-[10px] text-stone-400 leading-tight">desde ${fechaCorta(p.vigencia)}${
+      p.creado_por ? " · " + esc(p.creado_por) : ""}</div>`;
+    // Editable in-situ (gerencia). data-* identifica la celda para guardar/retirar.
+    const clase = editable ? " pubPrecio" : "";
+    // Retiro individual (punto 3): solo si el material NO está visible en ninguna web.
+    const retiro = (editable && !visibleEnAlguna)
+      ? `<button type="button" class="pubRetirar" data-mat="${esc(r.material_id)}" data-suc="${esc(s.sucursal_id)}"
+           title="Quitar este precio (el material no está visible en ninguna web)"
+           style="margin-left:6px;border:none;background:none;color:#be123c;cursor:pointer;font-weight:700">×</button>`
+      : "";
+    return `<td class="px-4 py-2.5 text-right" data-mat="${esc(r.material_id)}" data-suc="${esc(s.sucursal_id)}">
+      <div class="font-semibold text-emerald-700${clase}" data-valor="${p.precio}">${clp(p.precio)}${aviso}${retiro}</div>
+      ${meta}
+    </td>`;
   }).join("");
 
   const celdasEmpresa = EMPRESAS.map((e) => {
@@ -196,6 +215,8 @@ function renderRow(r) {
 // ── Interacción ───────────────────────────────────────────────────────────────
 function cablearChecks() {
   if (_rol !== "gerencia") return;
+
+  // Casillas de visibilidad por empresa.
   document.querySelectorAll("#publicadosBody .pubChk").forEach((chk) => {
     if (chk.disabled) return;
     chk.addEventListener("change", async () => {
@@ -208,12 +229,72 @@ function cablearChecks() {
         const f = _filas.find((x) => x.material_id === materialId);
         if (f) f.visible[empresaId] = visible;
         actualizarResumen();
+        // Cambió la visibilidad: aparece/desaparece la opción de retirar. Repinta.
+        _tabla.render();
       } catch (e) {
         chk.checked = !visible;   // revierte: manda el servidor, no la UI
         alert("No se pudo cambiar: " + e.message);
       } finally {
         chk.disabled = false;
       }
+    });
+  });
+
+  // Edición directa del precio por sucursal (punto 3), tipo celda de Excel.
+  document.querySelectorAll("#publicadosBody .pubPrecio").forEach((div) => {
+    const td = div.closest("td");
+    const materialId = td.dataset.mat;
+    const sucursalId = td.dataset.suc;
+    const f = _filas.find((x) => x.material_id === materialId);
+    const p = f?.precios[sucursalId];
+    activarEdicion(div, {
+      valor: Number(div.dataset.valor),
+      formato: clp,
+      // Mismo criterio que Materiales: alerta si baja del costo o cambia mucho.
+      confirmar: (nuevo, anterior) => {
+        const recibido = p?.recibido;
+        if (recibido != null && nuevo > Number(recibido)) {
+          return `⛔ Pagarías <b>${clp(nuevo)}</b> por algo que la fundición nos paga a ${clp(recibido)}.`;
+        }
+        const base = Number(anterior) || 0;
+        if (base > 0 && Math.abs(nuevo - base) / base >= 0.15) {
+          const dir = nuevo > base ? "sube" : "baja";
+          return `Este precio <b>${dir} ${Math.round(Math.abs(nuevo - base) / base * 100)}%</b>. ¿Es correcto?`;
+        }
+        return null;
+      },
+      onGuardar: async (nuevo) => {
+        await actualizarPrecio({ materialId, sucursalId, publicado: nuevo });
+        if (p) { p.precio = nuevo; p.requiere_revision = false; }
+      },
+    });
+  });
+
+  // Retiro individual de un precio (punto 3): solo aparece si el material no está visible.
+  document.querySelectorAll("#publicadosBody .pubRetirar").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();   // no dispares la edición de la celda
+      const materialId = btn.dataset.mat;
+      const sucursalId = btn.dataset.suc;
+      const f = _filas.find((x) => x.material_id === materialId);
+      const nombreSuc = _sucursales.find((s) => s.sucursal_id === sucursalId)?.nombre || sucursalId;
+      abrirModal({
+        titulo: "Quitar precio",
+        cuerpoHTML: `<p>¿Quitar el precio de <b>${esc(f?.material || materialId)}</b> en <b>${esc(nombreSuc)}</b>?</p>
+          <p style="font-size:13px;color:#78716c;margin-top:8px">Se retira de la lista vigente
+          (queda en el historial). Puedes volver a cargarlo cuando quieras.</p>`,
+        acciones: [
+          { texto: "Cancelar" },
+          { texto: "Quitar", primario: true, onClick: async () => {
+              try {
+                await retirarPrecio({ materialId, sucursalId, motivo: "Retiro individual desde Publicados" });
+                await mountPublicados();
+              } catch (err) {
+                abrirModal({ titulo: "No se pudo quitar", cuerpoHTML: `<p>${esc(err.message)}</p>` });
+              }
+            } },
+        ],
+      });
     });
   });
 }

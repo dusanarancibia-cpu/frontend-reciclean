@@ -1,57 +1,52 @@
-<!-- VISTA · Historial. Reemplaza a la antigua sección "Recibidos".
-     Todo el flujo procesado, en cualquier estado. Los IDs los consume historialController.js. -->
+<!-- VISTA · Historial de precios. Auditoría de variaciones: quién cambió qué precio, cuándo,
+     de cuánto a cuánto y en qué sucursal. Es solo lectura y su fin es la trazabilidad.
+     Los IDs los consume /controllers/historialController.js. -->
 <section class="max-w-6xl mx-auto p-4 md:p-6">
   <header class="mb-4">
-    <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>📚</span><span>Historial</span></h2>
+    <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>📚</span><span>Historial de precios</span></h2>
     <p class="text-sm text-stone-500 mt-1">
-      Todo lo que pasó por el flujo de precios: cargado, pendiente, publicado o descartado.
+      Cada cambio de precio queda registrado: alta, subida, bajada o retiro. Sirve para auditar
+      y, más adelante, graficar la fluctuación de cada material.
     </p>
   </header>
 
-  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
-    <input id="hisBuscar" type="search" placeholder="Buscar por material, usuario, origen, precio…"
-      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[220px]">
-    <select id="hisEstado" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
-      <option value="">Todos los estados</option>
-      <option value="crudo">Cargado</option>
-      <option value="pendiente">Pendiente</option>
-      <option value="publicado">Publicado</option>
-      <option value="descartado">Descartado</option>
-    </select>
-    <span id="hisResumen" class="text-xs text-stone-500"></span>
-    <!-- Solo gerencia. El controlador lo muestra; el RPC lo vuelve a validar en el
-         servidor, así que ocultarlo es comodidad, no seguridad. -->
-    <button id="hisVaciar" class="hidden bg-white border border-rose-300 text-rose-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">
-      🗑️ Vaciar historial
-    </button>
+  <!-- KPIs de fluctuación. La estructura ya queda lista para enchufar un gráfico. -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Cambios</div><div class="text-2xl font-bold text-stone-800 mt-1" id="hisKpiTotal">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Altas</div><div class="text-2xl font-bold text-sky-700 mt-1" id="hisKpiAltas">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Subidas</div><div class="text-2xl font-bold text-emerald-700 mt-1" id="hisKpiSubas">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Bajadas</div><div class="text-2xl font-bold text-amber-700 mt-1" id="hisKpiBajas">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Retiros</div><div class="text-2xl font-bold text-rose-700 mt-1" id="hisKpiRetiros">—</div></div>
   </div>
 
-  <!-- Descarte en lote. Vivía en la desaparecida sección "Pendientes"; se trasladó acá
-       porque el Historial ya lista todo estado y tiene el buscador del servidor. -->
-  <div id="hisLote" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-3">
-    <span class="text-sm text-amber-900 font-medium" id="hisLoteMsg"></span>
-    <button id="hisDescartar" class="bg-rose-700 hover:bg-rose-800 text-white px-3 py-1.5 rounded text-sm font-semibold">
-      Descartar seleccionados
-    </button>
-    <button id="hisLimpiar" class="text-xs text-stone-600 underline">Quitar selección</button>
+  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
+    <input id="hisBuscar" type="search" placeholder="Buscar por material, usuario o sucursal…"
+      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[220px]">
+    <select id="hisVariacion" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
+      <option value="">Todas las variaciones</option>
+      <option value="alta">Altas</option>
+      <option value="sube">Subidas</option>
+      <option value="baja">Bajadas</option>
+      <option value="retiro">Retiros</option>
+    </select>
+    <span id="hisResumen" class="text-xs text-stone-500"></span>
   </div>
 
   <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
       <thead id="hisHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
         <tr>
-          <th class="px-4 py-2.5 w-8"><input type="checkbox" id="hisTodos" title="Seleccionar todo lo descartable de esta página"></th>
-          <th class="text-left px-4 py-2.5" data-sort="estado">Estado</th>
+          <th class="text-left px-4 py-2.5" data-sort="fecha">Fecha</th>
+          <th class="text-left px-4 py-2.5" data-sort="usuario">Usuario</th>
           <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
           <th class="text-left px-4 py-2.5" data-sort="sucursal">Sucursal</th>
-          <th class="text-right px-4 py-2.5" data-sort="recibido">Recibido</th>
-          <th class="text-right px-4 py-2.5" data-sort="publicado">Publicado</th>
-          <th class="text-left px-4 py-2.5" data-sort="origen">Origen</th>
-          <th class="text-left px-4 py-2.5" data-sort="creado">Fecha</th>
+          <th class="text-right px-4 py-2.5" data-sort="anterior">Precio anterior</th>
+          <th class="text-right px-4 py-2.5" data-sort="nuevo">Precio nuevo</th>
+          <th class="text-left px-4 py-2.5" data-sort="variacion">Variación</th>
         </tr>
       </thead>
       <tbody id="hisBody" class="divide-y divide-stone-100">
-        <tr><td colspan="8" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
+        <tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
       </tbody>
     </table>
   </div>

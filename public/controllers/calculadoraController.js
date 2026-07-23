@@ -18,7 +18,7 @@
 // ahora compara contra un umbral único configurable en precios_v3.config_calculadora.
 import { calcular, semaforo } from "../calculadora/js/model/formula.js";
 import { listarBorradores, publicar, descartar, catalogos, configCalculadora } from "../models/flujoRepo.js";
-import { precioVigente } from "../models/preciosRepo.js";
+import { precioVigente, actualizarPrecio } from "../models/preciosRepo.js";
 import { abrirModal } from "../components/modal.js";
 import { escapeHTML, filtroGlobal } from "../js/util.js";
 import { rolActual } from "../js/permisos.js";
@@ -28,10 +28,20 @@ const esc = escapeHTML;
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
 const num = (id, def = 0) => { const v = Number($(id)?.value); return Number.isFinite(v) ? v : def; };
 
+// Regla de negocio: el "Precio Venta" editado no puede superar en más de 15% el precio base
+// asignado originalmente al material (el que traía el pendiente al cargarse).
+const TOPE_VENTA = 0.15;
+
+// "Santiago" no es una sucursal real: es un atajo que replica el mismo precio en las dos
+// sucursales de la zona (Maipú y Cerrillos). Elegir Maipú o Cerrillos por separado NO replica.
+const SANTIAGO = "santiago";
+const SANTIAGO_FANOUT = ["maipu", "cerrillos"];
+
 let _pendientes = [];
 let _sucursales = [];
 let _cfg = null;      // umbrales del semáforo + valores iniciales
 let _sel = null;      // el pendiente en el que se está trabajando
+let _baseVenta = 0;   // Precio Venta base del material seleccionado (para el tope +15%)
 let _vigente = null;  // precio vigente del par material×sucursal (para el delta)
 let _rol = "lector";
 let _modo = "0";      // redondeo activo
@@ -54,7 +64,10 @@ export async function mountCalculadora() {
     _sel = null;
 
     pintarRol();
+    // "Santiago" va primero como atajo (replica a Maipú + Cerrillos); luego las reales.
+    const tieneSantiago = SANTIAGO_FANOUT.every((id) => _sucursales.some((s) => s.sucursal_id === id));
     $("calcSucursal").innerHTML = `<option value="">— elige sucursal —</option>` +
+      (tieneSantiago ? `<option value="${SANTIAGO}">Santiago (Maipú + Cerrillos)</option>` : "") +
       _sucursales.map((s) => `<option value="${esc(s.sucursal_id)}">${esc(s.nombre)}</option>`).join("");
 
     pintarLista(_pendientes);
@@ -106,11 +119,13 @@ function seleccionar(id) {
     `Origen: ${_sel.origen} · cargado por ${_sel.creado_por || "—"}`;
   $("calcSucursal").value = _sel.sucursal_id || "";
 
-  // El precio recibido manda el rango del slider: no tiene sentido ofrecer más de lo que
-  // nos pagan, así que el tope del control es ese número.
+  // Precio Venta: parte en el valor base del material. Se puede editar, pero no más de un
+  // +15% sobre ese base (regla de negocio). El tope del slider ya es base×1.15; si alguien
+  // escribe un número mayor en el input, validar() lo bloquea.
   const p = Number(_sel.precio_recibido_clp) || 0;
+  _baseVenta = p;
   const sl = $("calcP");
-  sl.min = 0; sl.max = Math.max(p, 1); sl.value = p;
+  sl.min = 0; sl.max = Math.max(Math.round(p * (1 + TOPE_VENTA)), 1); sl.value = p;
   $("calcPNum").value = p;
 
   fijar("calcMg", "calcMgNum", _cfg.def_margen_pct);
@@ -220,11 +235,18 @@ function recalcular() {
 // La base rechaza publicar sobre lo que nos pagan; el aviso lo dice antes de intentarlo.
 function validar(c) {
   const recibido = Number(_sel?.precio_recibido_clp) || 0;
+  const venta = num("calcPNum");
+  const topeVenta = _baseVenta * (1 + TOPE_VENTA);
   const $a = $("calcAlerta");
   const $btn = $("calcPublicar");
   let msg = "";
 
-  if (!$("calcSucursal").value) msg = "Elige una sucursal para poder publicar.";
+  // El tope del Precio Venta se valida ANTES que el resto: es la regla dura del punto 2.
+  if (_baseVenta > 0 && venta > topeVenta) {
+    msg = `El Precio Venta ${clp(venta)} supera en más de 15% el precio base ` +
+          `(${clp(_baseVenta)} · tope ${clp(Math.round(topeVenta))}). Corrígelo para continuar.`;
+  }
+  else if (!$("calcSucursal").value) msg = "Elige una sucursal para poder publicar.";
   else if (c.plista <= 0) msg = "El P.Lista debe ser mayor que 0.";
   else if (c.plista > recibido) msg = `El P.Lista ${clp(c.plista)} supera lo que nos pagan (${clp(recibido)}): sería comprar con pérdida.`;
   else if (c.pmax > recibido) msg = `El P.Máx ${clp(c.pmax)} supera lo que nos pagan (${clp(recibido)}). Baja el spread o el margen.`;
@@ -268,13 +290,23 @@ async function onPublicar() {
           const $m = $("calcMsg");
           try {
             $m.textContent = "Publicando…";
+            // Santiago replica el mismo precio en Maipú y Cerrillos: el borrador se publica
+            // en la primera (queda su trazabilidad) y la otra se escribe como precio directo.
+            const [sucPrincipal, ...resto] = (suc === SANTIAGO) ? SANTIAGO_FANOUT : [suc];
             await publicar({
-              id: _sel.id, sucursalId: suc, precioPublicado: c.plista,
+              id: _sel.id, sucursalId: sucPrincipal, precioPublicado: c.plista,
               precioEjecutivo: c.pejec, precioMaximo: c.pmax,
               flete: num("calcFlNum"), spreadPct: num("calcBNum"),
               ivaPct: num("calcIvaNum"), redondeo: _modo,
             });
-            $m.textContent = "✅ Publicado.";
+            for (const s of resto) {
+              await actualizarPrecio({
+                materialId: _sel.material_id, sucursalId: s,
+                publicado: c.plista, recibido: Number(_sel.precio_recibido_clp) || null,
+                motivo: "Réplica de Santiago",
+              });
+            }
+            $m.textContent = suc === SANTIAGO ? "✅ Publicado en Maipú y Cerrillos." : "✅ Publicado.";
             await refrescar();
           } catch (e) {
             $m.textContent = "";

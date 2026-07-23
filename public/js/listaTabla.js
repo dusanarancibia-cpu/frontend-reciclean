@@ -23,9 +23,12 @@ export function montarTabla(cfg) {
     infoText = null, onRender = null,
   } = cfg;
 
-  let _rows = Array.isArray(rows) ? rows.slice() : [];
+  // _original conserva SIEMPRE el orden en que llegaron las filas (el de Supabase). No se
+  // muta nunca: el 3er estado del orden ("original") vuelve a él. La vista ordenada se
+  // calcula sobre una copia, así el reset es exacto.
+  let _original = Array.isArray(rows) ? rows.slice() : [];
   let sortKey = sortInicial?.key || null;
-  let sortDir = sortInicial?.dir || "asc";
+  let sortDir = sortInicial?.dir || "asc";   // "asc" | "desc" | null(=original)
   let page = 1;
 
   const cmp = (a, b) => {
@@ -44,8 +47,11 @@ export function montarTabla(cfg) {
     if (!thead) return;
     thead.querySelectorAll("[data-sort]").forEach((th) => {
       th.style.cursor = "pointer";
-      const base = th.textContent.replace(/\s*[▲▼]\s*$/, "").trim();
-      th.textContent = base + (th.dataset.sort === sortKey ? (sortDir === "asc" ? " ▲" : " ▼") : "");
+      const base = th.textContent.replace(/\s*[▲▼↕]\s*$/, "").trim();
+      // Sufijo según el estado de ESTA columna: ▲ asc, ▼ desc, ↕ = ordenable (inactiva).
+      let suf = " ↕";
+      if (th.dataset.sort === sortKey && sortDir) suf = sortDir === "asc" ? " ▲" : " ▼";
+      th.textContent = base + suf;
     });
   }
 
@@ -66,11 +72,15 @@ export function montarTabla(cfg) {
   }
 
   function render() {
-    if (sortKey && sorters[sortKey]) _rows.sort(cmp);
-    const total = _rows.length;
+    // Orden original = _original tal cual. Con orden activo se ordena una COPIA, para no
+    // perder nunca la secuencia de partida.
+    const vista = (sortKey && sortDir && sorters[sortKey])
+      ? _original.slice().sort(cmp)
+      : _original;
+    const total = vista.length;
     const pages = Math.max(1, Math.ceil(total / pageSize));
     if (page > pages) page = pages;
-    const slice = _rows.slice((page - 1) * pageSize, page * pageSize);
+    const slice = vista.slice((page - 1) * pageSize, page * pageSize);
     tbody.innerHTML = slice.length
       ? slice.map(renderRow).join("")
       : `<tr><td colspan="${colspan}" class="px-4 py-8 text-center text-stone-400">${vacio}</td></tr>`;
@@ -88,8 +98,11 @@ export function montarTabla(cfg) {
     thead.querySelectorAll("[data-sort]").forEach((th) => {
       th.addEventListener("click", () => {
         const k = th.dataset.sort;
-        if (sortKey === k) sortDir = sortDir === "asc" ? "desc" : "asc";
-        else { sortKey = k; sortDir = "asc"; }
+        // Ciclo de 3 estados por columna: asc → desc → original (sin orden).
+        if (sortKey !== k) { sortKey = k; sortDir = "asc"; }
+        else if (sortDir === "asc") sortDir = "desc";
+        else if (sortDir === "desc") { sortDir = null; sortKey = null; } // vuelve al orden de Supabase
+        else sortDir = "asc";
         page = 1;
         render();
       });
@@ -98,7 +111,7 @@ export function montarTabla(cfg) {
 
   render();
   return {
-    setRows(r) { _rows = Array.isArray(r) ? r.slice() : []; page = 1; render(); },
+    setRows(r) { _original = Array.isArray(r) ? r.slice() : []; page = 1; render(); },
     render,
   };
 }
