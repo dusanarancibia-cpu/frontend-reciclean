@@ -1,4 +1,4 @@
-<!-- VISTA · Catálogo de materiales (tabla estática). CRUD simple, solo gerencia.
+<!-- VISTA · Catálogo de materiales, agrupado por categoría (acordeón). CRUD, solo gerencia.
      Distinta de "Materiales y Precios": aquí se define QUÉ material existe, no cuánto vale.
      Los IDs los consume /controllers/catalogoController.js. -->
 <section class="max-w-5xl mx-auto p-4 md:p-6">
@@ -6,7 +6,7 @@
     <div>
       <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>📦</span><span>Catálogo de materiales</span></h2>
       <p class="text-sm text-stone-500 mt-1">
-        Define qué materiales existen y cómo se llaman de cara al público.
+        Define qué materiales existen y en qué categoría van. Haz clic en una categoría para expandirla.
         Los precios se gestionan aparte, en <b>Materiales y Precios</b>.
       </p>
     </div>
@@ -21,25 +21,14 @@
     <label class="flex items-center gap-1 text-xs text-stone-600">
       <input type="checkbox" id="catVerInactivos"> Ver inactivos
     </label>
+    <button id="catExpandir" class="bg-white border border-stone-300 text-stone-600 px-3 py-1.5 rounded text-sm font-medium">Expandir/plegar</button>
+    <button id="catExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">⬇ Exportar CSV</button>
+    <button id="catCategorias" class="hidden bg-white border border-emerald-300 text-emerald-700 px-3 py-1.5 rounded text-sm font-semibold">🗂 Categorías</button>
     <button id="catNuevo" class="bg-emerald-700 text-white px-3 py-1.5 rounded text-sm font-semibold">+ Nuevo material</button>
   </div>
 
-  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead id="catHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
-        <tr>
-          <th class="text-left px-4 py-2.5" data-sort="nombre">Nombre interno</th>
-          <th class="text-left px-4 py-2.5" data-sort="publico">Nombre público</th>
-          <th class="text-left px-4 py-2.5" data-sort="categoria">Categoría</th>
-          <th class="text-center px-4 py-2.5" data-sort="precios">Precios vigentes</th>
-          <th class="text-right px-4 py-2.5">Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="catBody" class="divide-y divide-stone-100">
-        <tr><td colspan="5" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div id="catPager"></div>
+  <!-- El acordeón por categoría se monta aquí. -->
+  <div id="catAcc"></div>
+
   <p class="text-xs text-stone-500 mt-3" id="catInfo"></p>
 </section>

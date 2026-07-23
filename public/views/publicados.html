@@ -33,6 +33,8 @@
     <label class="flex items-center gap-1 text-xs text-stone-600">
       <input type="checkbox" id="publicadosSoloVisibles"> Solo los que están en alguna web
     </label>
+    <button id="publicadosExpandir" class="bg-white border border-stone-300 text-stone-600 px-3 py-1.5 rounded text-sm font-medium">Expandir/plegar</button>
+    <button id="publicadosExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">⬇ Exportar CSV</button>
     <!-- Solo gerencia. El controlador lo muestra; el RPC revalida el rol en el servidor,
          así que ocultarlo es comodidad, no seguridad. -->
     <button id="publicadosReiniciar" class="hidden bg-white border border-rose-300 text-rose-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">
@@ -40,17 +42,13 @@
     </button>
   </div>
 
-  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead id="publicadosHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
-        <tr><th class="text-left px-4 py-2.5">Cargando…</th></tr>
-      </thead>
-      <tbody id="publicadosBody" class="divide-y divide-stone-100">
-        <tr><td class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div id="publicadosPager"></div>
+  <p class="text-xs text-stone-500 mb-2" id="publicadosLeyenda">
+    En la cabecera de cada categoría puedes publicar o quitar <b>toda la categoría</b> de una web de un solo clic.
+  </p>
+
+  <!-- El acordeón por categoría se monta aquí. -->
+  <div id="publicadosAcc"></div>
+
   <p class="text-xs text-stone-500 mt-3" id="publicadosInfo"></p>
   <p class="text-xs text-stone-500 mt-1" id="publicadosResumen"></p>
 </section>

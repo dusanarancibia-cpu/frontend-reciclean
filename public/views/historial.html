@@ -29,27 +29,12 @@
       <option value="baja">Bajadas</option>
       <option value="retiro">Retiros</option>
     </select>
+    <button id="hisExpandir" class="bg-white border border-stone-300 text-stone-600 px-3 py-1.5 rounded text-sm font-medium">Expandir/plegar</button>
+    <button id="hisExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">⬇ Exportar CSV</button>
     <span id="hisResumen" class="text-xs text-stone-500"></span>
   </div>
 
-  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead id="hisHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
-        <tr>
-          <th class="text-left px-4 py-2.5" data-sort="fecha">Fecha</th>
-          <th class="text-left px-4 py-2.5" data-sort="usuario">Usuario</th>
-          <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
-          <th class="text-left px-4 py-2.5" data-sort="sucursal">Sucursal</th>
-          <th class="text-right px-4 py-2.5" data-sort="anterior">Precio anterior</th>
-          <th class="text-right px-4 py-2.5" data-sort="nuevo">Precio nuevo</th>
-          <th class="text-left px-4 py-2.5" data-sort="variacion">Variación</th>
-        </tr>
-      </thead>
-      <tbody id="hisBody" class="divide-y divide-stone-100">
-        <tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div id="hisPager"></div>
+  <!-- Acordeón por categoría; cada categoría lista sus cambios de precio (más recientes arriba). -->
+  <div id="hisAcc"></div>
   <p class="text-xs text-stone-500 mt-3" id="hisInfo"></p>
 </section>

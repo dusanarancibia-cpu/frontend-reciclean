@@ -1,22 +1,25 @@
 // CONTROLADOR · Publicados. Absorbió a la antigua "Vitrina pública".
 //
-// Una fila por MATERIAL, con:
+// Vista de acordeón POR CATEGORÍA (ya no una tabla plana inmensa). Cada categoría se
+// expande y muestra su tabla con:
 //   · una columna por sucursal con el precio vigente ahí (lo que le pagamos a la gente)
-//   · una casilla por empresa que decide si aparece en esa web
+//   · una casilla por empresa que decide si ese material aparece en esa web
+// Y en la CABECERA de cada categoría, una casilla por empresa para publicar o quitar la
+// categoría entera de una web de un solo clic (publicación modular por categoría o material).
 //
-// POR QUÉ UNA FILA POR MATERIAL Y NO POR MATERIAL×SUCURSAL: la visibilidad se decide por
-// material y empresa (precios_v3.catalogo_publico tiene PK (empresa_id, material_id)), así
-// que una tabla por par obligaría a repetir la misma casilla 4 veces y a preguntarse cuál
-// manda. La matriz deja explícito lo que es único por material y lo que varía por sucursal.
+// POR QUÉ VISIBILIDAD POR MATERIAL×EMPRESA: precios_v3.catalogo_publico tiene PK
+// (empresa_id, material_id). La casilla de categoría no es un estado nuevo: es un atajo que
+// aplica el mismo cambio a todos los materiales de la categoría que tengan precio.
 //
 // Las columnas de sucursal se construyen desde los datos: agregar una sucursal nueva no
 // requiere tocar código ni la vista.
 import { listarPrecios, listarVitrina, publicarMaterial, actualizarPrecio, retirarPrecio,
          reiniciarPrecios, contarReinicioPrecios } from "../models/preciosRepo.js";
-import { montarTabla } from "../js/listaTabla.js";
+import { montarAcordeon, agruparPorCategoria } from "../components/acordeon.js";
 import { activarEdicion } from "../components/precioCelda.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
-import { escapeHTML, normalizarTexto } from "../js/util.js";
+import { toast, toastError } from "../components/toast.js";
+import { escapeHTML, normalizarTexto, descargarCSV } from "../js/util.js";
 import { rolActual } from "../js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
@@ -28,57 +31,37 @@ const EMPRESAS = [
   { id: "farex", etiqueta: "FAREX" },
   { id: "reciclean_spa", etiqueta: "Reciclean" },
 ];
+const etiquetaEmp = (id) => EMPRESAS.find((e) => e.id === id)?.etiqueta || id;
 
-let _filas = [];        // una por material, ya fusionada
+let _filas = [];        // una por material, ya fusionada (solo materiales con precio vigente)
 let _sucursales = [];   // [{ sucursal_id, nombre }]
-let _tabla = null;
+let _grupos = [];       // agrupación por categoría del render actual (para los toggles)
+let _acc = null;
 let _rol = "lector";
 
 export async function mountPublicados() {
-  const body = $("publicadosBody");
+  const cont = $("publicadosAcc");
+  cont.innerHTML = `<div class="text-center text-stone-400 text-sm py-8">Cargando…</div>`;
 
   try {
     // Las dos fuentes son independientes y ninguna depende de la otra: van en paralelo.
     const [precios, vitrina] = await Promise.all([listarPrecios(), listarVitrina()]);
 
-    // rolDesdeToken() leía app_metadata del JWT, que es null mientras el hook no esté
-    // activo; por eso caía a "lector". rolActual() viene de mis_permisos y siempre está.
     _rol = precios[0]?.mi_rol || vitrina[0]?.mi_rol || rolActual();
     _sucursales = sucursalesDesde(precios);
     _filas = fusionar(precios, vitrina);
 
     pintarRol();
-    pintarCabecera();
     pintarSelectorSucursal();
-
-    if (!_filas.length) {
-      body.innerHTML = filaVacia("Sin materiales en el catálogo.");
-      return;
-    }
-
-    _tabla = montarTabla({
-      tbody: body, thead: $("publicadosHead"), info: $("publicadosInfo"), pager: $("publicadosPager"),
-      rows: visibles(), renderRow, colspan: totalColumnas(), pageSize: 25,
-      vacio: "Sin materiales que coincidan.",
-      // Orden por defecto = el de la lista en papel (cobre → bronce → aluminio → …).
-      sortInicial: { key: "orden", dir: "asc" },
-      sorters: sorters(),
-      infoText: (t, p, pg) => `${t} material(es) · página ${p} de ${pg}.`,
-      onRender: cablearChecks,
-    });
+    construir();
 
     cablearControles();
     cablearReinicio();
     actualizarResumen();
   } catch (e) {
-    body.innerHTML = filaVacia("❌ No pude cargar los publicados: " + esc(e.message));
+    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">❌ No pude cargar los publicados: ${esc(e.message)}</div>`;
   }
 }
-
-const filaVacia = (txt) =>
-  `<tr><td colspan="${totalColumnas()}" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
-
-const totalColumnas = () => 1 + _sucursales.length + EMPRESAS.length;
 
 // ── Fusión de las dos fuentes ─────────────────────────────────────────────────
 function sucursalesDesde(precios) {
@@ -89,9 +72,8 @@ function sucursalesDesde(precios) {
     .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"));
 }
 
-// Se parte de la vitrina (tiene TODO el catálogo, con o sin precio) y se le cuelgan los
-// precios. Al revés se perderían los materiales activos que aún no tienen precio, que son
-// justo los que gerencia necesita detectar.
+// Se parte de la vitrina (tiene TODO el catálogo, con o sin precio, y la categoría) y se le
+// cuelgan los precios.
 function fusionar(precios, vitrina) {
   const porMaterial = new Map();
   vitrina.forEach((v) => {
@@ -99,8 +81,11 @@ function fusionar(precios, vitrina) {
       material_id: v.material_id,
       material: v.material,
       visible: v.visible || {},
-      orden: v.orden ?? 9999,   // orden de la lista en papel
-      precios: {},              // sucursal_id → { precio, vigencia, requiere_revision }
+      orden: v.orden ?? 9999,
+      categoria: v.categoria || "_sin",
+      categoria_nombre: v.categoria_nombre || "Sin categoría",
+      categoria_orden: v.categoria_orden ?? 999,
+      precios: {},              // sucursal_id → { precio, recibido, vigencia, creado_por, requiere_revision }
       revisar: false,
     });
   });
@@ -108,14 +93,14 @@ function fusionar(precios, vitrina) {
   precios.forEach((p) => {
     let f = porMaterial.get(p.material_id);
     if (!f) {
-      // Precio de un material que no está en el catálogo público: se muestra igual, para
-      // que no quede invisible en el panel.
-      f = { material_id: p.material_id, material: p.material, visible: {}, orden: 9999, precios: {}, revisar: false };
+      f = { material_id: p.material_id, material: p.material, visible: {}, orden: 9999,
+            categoria: "_sin", categoria_nombre: "Sin categoría", categoria_orden: 999,
+            precios: {}, revisar: false };
       porMaterial.set(p.material_id, f);
     }
     f.precios[p.sucursal_id] = {
       precio: p.precio_publicado_clp,
-      recibido: p.precio_recibido_clp,     // para el tope al editar (solo gerencia lo ve)
+      recibido: p.precio_recibido_clp,
       vigencia: p.vigencia_desde,
       creado_por: p.creado_por,
       requiere_revision: !!p.requiere_revision,
@@ -123,42 +108,63 @@ function fusionar(precios, vitrina) {
     if (p.requiere_revision) f.revisar = true;
   });
 
-  // Publicados es la pantalla de lo que SE PUBLICA: solo materiales con al menos un precio
-  // vigente. Los materiales sin precio (inactivos para publicar) confundían con filas de
-  // puros guiones; esos se gestionan en el Catálogo, no acá.
+  // Publicados = lo que SE PUBLICA: solo materiales con al menos un precio vigente.
   return [...porMaterial.values()]
     .filter((f) => Object.values(f.precios).some((p) => p?.precio != null));
 }
 
-// ── Cabecera dinámica ─────────────────────────────────────────────────────────
-function pintarCabecera() {
-  const head = $("publicadosHead");
-  if (!head) return;
-  const suc = _sucursales.filter(enFiltroSucursal)
-    .map((s) => `<th class="text-right px-4 py-2.5" data-sort="suc_${esc(s.sucursal_id)}">${esc(s.nombre)}</th>`)
-    .join("");
-  const emp = EMPRESAS
-    .map((e) => `<th class="text-center px-4 py-2.5" data-sort="emp_${esc(e.id)}">${esc(e.etiqueta)}</th>`)
-    .join("");
-  head.innerHTML = `<tr>
-    <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
-    ${suc}${emp}
-  </tr>`;
+// ── Construcción del acordeón ─────────────────────────────────────────────────
+const sucVisibles = () => _sucursales.filter(enFiltroSucursal);
+
+function columnas() {
+  return [
+    { th: "Material" },
+    ...sucVisibles().map((s) => ({ th: esc(s.nombre), align: "right" })),
+    ...EMPRESAS.map((e) => ({ th: esc(e.etiqueta), align: "center" })),
+  ];
 }
 
-// El orden acepta cualquier columna, incluidas las que se generan en runtime.
-// "orden" es el de la lista en papel por planta (categorías cobre → bronce → aluminio → …);
-// es el orden por defecto porque así lee gerencia. Al hacer clic en una columna se reordena.
-function sorters() {
-  const s = {
-    orden:    (r) => r.orden,
-    material: (r) => r.material || "",
-  };
-  _sucursales.forEach((x) => {
-    s["suc_" + x.sucursal_id] = (r) => Number(r.precios[x.sucursal_id]?.precio ?? -1);
+function visibles() {
+  const q = $("publicadosBuscar")?.value || "";
+  const solo = $("publicadosSoloVisibles")?.checked;
+  const t = normalizarTexto(q);
+  return _filas.filter((r) => {
+    if (solo && !EMPRESAS.some((e) => r.visible[e.id])) return false;
+    return !t || normalizarTexto(r.material).includes(t);
   });
-  EMPRESAS.forEach((e) => { s["emp_" + e.id] = (r) => (r.visible[e.id] ? 1 : 0); });
-  return s;
+}
+
+function gruposVisibles() {
+  _grupos = agruparPorCategoria(visibles()).filter((g) => g.filas.length);
+  return _grupos;
+}
+
+// (Re)crea el acordeón desde cero. Se usa al montar y cuando cambian las columnas (filtro de
+// sucursal). Para búsqueda/solo-visibles basta con _acc.setGrupos (conserva qué está abierto).
+function construir() {
+  _acc = montarAcordeon({
+    contenedor: $("publicadosAcc"),
+    columnas: columnas(),
+    grupos: gruposVisibles(),
+    renderRow,
+    resumenExtra: resumenCategoria,
+    onRender: cablear,
+    abrir: "todos",
+    vacio: "Sin materiales con precio en esta categoría.",
+  });
+}
+
+// ── Cabecera de categoría: publicar/quitar la categoría entera por empresa ─────
+function resumenCategoria(grupo) {
+  const editable = _rol === "gerencia";
+  return EMPRESAS.map((e) => {
+    const n = grupo.filas.filter((r) => r.visible[e.id]).length;
+    const todos = grupo.filas.length > 0 && n === grupo.filas.length;
+    return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#57534e;font-weight:600;cursor:${editable ? "pointer" : "default"}">
+      <input type="checkbox" class="pubCatChk" data-cat="${esc(grupo.id)}" data-emp="${esc(e.id)}"
+        style="width:15px;height:15px" ${todos ? "checked" : ""} ${editable ? "" : "disabled"}>
+      ${esc(e.etiqueta)}</label>`;
+  }).join("");
 }
 
 // ── Filas ─────────────────────────────────────────────────────────────────────
@@ -168,19 +174,16 @@ function renderRow(r) {
   const editable = _rol === "gerencia";
   const visibleEnAlguna = EMPRESAS.some((e) => r.visible[e.id]);
 
-  const celdasPrecio = _sucursales.filter(enFiltroSucursal).map((s) => {
+  const celdasPrecio = sucVisibles().map((s) => {
     const p = r.precios[s.sucursal_id];
     if (!p || p.precio == null) {
       return `<td class="px-4 py-2.5 text-right text-stone-300">—</td>`;
     }
     const aviso = p.requiere_revision
       ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de confiar en él">⚠️</span>` : "";
-    // Metadatos por precio (punto 3): vigencia + quién lo ingresó, bajo el valor.
     const meta = `<div class="text-[10px] text-stone-400 leading-tight">desde ${fechaCorta(p.vigencia)}${
       p.creado_por ? " · " + esc(p.creado_por) : ""}</div>`;
-    // Editable in-situ (gerencia). data-* identifica la celda para guardar/retirar.
     const clase = editable ? " pubPrecio" : "";
-    // Retiro individual (punto 3): solo si el material NO está visible en ninguna web.
     const retiro = (editable && !visibleEnAlguna)
       ? `<button type="button" class="pubRetirar" data-mat="${esc(r.material_id)}" data-suc="${esc(s.sucursal_id)}"
            title="Quitar este precio (el material no está visible en ninguna web)"
@@ -195,8 +198,6 @@ function renderRow(r) {
   const celdasEmpresa = EMPRESAS.map((e) => {
     const on = !!r.visible[e.id];
     const sinPrecio = !Object.values(r.precios).some((p) => p?.precio != null);
-    // Sin precio en ninguna sucursal no hay nada que publicar: la casilla se desactiva
-    // para que nadie crea que activándola aparecerá algo en la web.
     const bloqueada = !editable || sinPrecio;
     return `<td class="px-4 py-2.5 text-center">
       <input type="checkbox" class="pubChk" style="width:18px;height:18px;cursor:${bloqueada ? "not-allowed" : "pointer"}"
@@ -213,44 +214,81 @@ function renderRow(r) {
 }
 
 // ── Interacción ───────────────────────────────────────────────────────────────
-function cablearChecks() {
-  if (_rol !== "gerencia") return;
+function cablear() {
+  const cont = $("publicadosAcc");
+  if (_rol === "gerencia") {
+    cablearCatToggles(cont);
+    cablearChecksIndividuales(cont);
+    cablearEdicionPrecio(cont);
+    cablearRetiros(cont);
+  }
+}
 
-  // Casillas de visibilidad por empresa.
-  document.querySelectorAll("#publicadosBody .pubChk").forEach((chk) => {
+// Casillas de categoría (cabecera): aplican el cambio a todos los materiales de la categoría.
+function cablearCatToggles(cont) {
+  cont.querySelectorAll(".pubCatChk").forEach((chk) => {
+    if (chk.disabled) return;
+    // Estado indeterminado si la categoría está parcialmente publicada en esa empresa.
+    const grupo = _grupos.find((g) => g.id === chk.dataset.cat);
+    if (grupo) {
+      const n = grupo.filas.filter((r) => r.visible[chk.dataset.emp]).length;
+      chk.indeterminate = n > 0 && n < grupo.filas.length;
+    }
+    chk.addEventListener("change", async () => {
+      const cat = chk.dataset.cat, emp = chk.dataset.emp;
+      const nuevo = chk.checked;
+      const grupo = _grupos.find((g) => g.id === cat);
+      const objetivo = (grupo?.filas || []).filter((r) => !!r.visible[emp] !== nuevo);
+      if (!objetivo.length) return;
+      chk.disabled = true;
+      try {
+        await Promise.all(objetivo.map((r) =>
+          publicarMaterial({ empresaId: emp, materialId: r.material_id, visible: nuevo })));
+        objetivo.forEach((r) => { r.visible[emp] = nuevo; });
+        toast(`${objetivo.length} material(es) ${nuevo ? "publicado(s)" : "quitado(s)"} en ${etiquetaEmp(emp)}.`);
+        actualizarResumen();
+        _acc.setGrupos(gruposVisibles());   // repinta y re-cablea
+      } catch (e) {
+        chk.checked = !nuevo;
+        toastError("No se pudo aplicar a la categoría: " + e.message);
+      } finally {
+        chk.disabled = false;
+      }
+    });
+  });
+}
+
+function cablearChecksIndividuales(cont) {
+  cont.querySelectorAll(".pubChk").forEach((chk) => {
     if (chk.disabled) return;
     chk.addEventListener("change", async () => {
-      const materialId = chk.dataset.mat;
-      const empresaId = chk.dataset.emp;
-      const visible = chk.checked;
+      const materialId = chk.dataset.mat, empresaId = chk.dataset.emp, visible = chk.checked;
       chk.disabled = true;
       try {
         await publicarMaterial({ empresaId, materialId, visible });
         const f = _filas.find((x) => x.material_id === materialId);
         if (f) f.visible[empresaId] = visible;
         actualizarResumen();
-        // Cambió la visibilidad: aparece/desaparece la opción de retirar. Repinta.
-        _tabla.render();
+        _acc.setGrupos(gruposVisibles());   // cambió la visibilidad: repinta cabecera y retiros
       } catch (e) {
-        chk.checked = !visible;   // revierte: manda el servidor, no la UI
-        alert("No se pudo cambiar: " + e.message);
+        chk.checked = !visible;
+        toastError("No se pudo cambiar: " + e.message);
       } finally {
         chk.disabled = false;
       }
     });
   });
+}
 
-  // Edición directa del precio por sucursal (punto 3), tipo celda de Excel.
-  document.querySelectorAll("#publicadosBody .pubPrecio").forEach((div) => {
+function cablearEdicionPrecio(cont) {
+  cont.querySelectorAll(".pubPrecio").forEach((div) => {
     const td = div.closest("td");
-    const materialId = td.dataset.mat;
-    const sucursalId = td.dataset.suc;
+    const materialId = td.dataset.mat, sucursalId = td.dataset.suc;
     const f = _filas.find((x) => x.material_id === materialId);
     const p = f?.precios[sucursalId];
     activarEdicion(div, {
       valor: Number(div.dataset.valor),
       formato: clp,
-      // Mismo criterio que Materiales: alerta si baja del costo o cambia mucho.
       confirmar: (nuevo, anterior) => {
         const recibido = p?.recibido;
         if (recibido != null && nuevo > Number(recibido)) {
@@ -266,16 +304,17 @@ function cablearChecks() {
       onGuardar: async (nuevo) => {
         await actualizarPrecio({ materialId, sucursalId, publicado: nuevo });
         if (p) { p.precio = nuevo; p.requiere_revision = false; }
+        toast("Precio actualizado.");
       },
     });
   });
+}
 
-  // Retiro individual de un precio (punto 3): solo aparece si el material no está visible.
-  document.querySelectorAll("#publicadosBody .pubRetirar").forEach((btn) => {
+function cablearRetiros(cont) {
+  cont.querySelectorAll(".pubRetirar").forEach((btn) => {
     btn.addEventListener("click", (e) => {
-      e.stopPropagation();   // no dispares la edición de la celda
-      const materialId = btn.dataset.mat;
-      const sucursalId = btn.dataset.suc;
+      e.stopPropagation();
+      const materialId = btn.dataset.mat, sucursalId = btn.dataset.suc;
       const f = _filas.find((x) => x.material_id === materialId);
       const nombreSuc = _sucursales.find((s) => s.sucursal_id === sucursalId)?.nombre || sucursalId;
       abrirModal({
@@ -288,9 +327,10 @@ function cablearChecks() {
           { texto: "Quitar", primario: true, onClick: async () => {
               try {
                 await retirarPrecio({ materialId, sucursalId, motivo: "Retiro individual desde Publicados" });
+                toast("Precio retirado.");
                 await mountPublicados();
               } catch (err) {
-                abrirModal({ titulo: "No se pudo quitar", cuerpoHTML: `<p>${esc(err.message)}</p>` });
+                toastError(err.message);
               }
             } },
         ],
@@ -311,34 +351,39 @@ function pintarSelectorSucursal() {
     _sucursales.map((s) => `<option value="${esc(s.sucursal_id)}">${esc(s.nombre)}</option>`).join("");
 }
 
-function visibles() {
-  const q = $("publicadosBuscar")?.value || "";
-  const solo = $("publicadosSoloVisibles")?.checked;
-  const t = normalizarTexto(q);
-  return _filas.filter((r) => {
-    if (solo && !EMPRESAS.some((e) => r.visible[e.id])) return false;
-    return !t || normalizarTexto(r.material).includes(t);
-  });
-}
-
 function cablearControles() {
-  const refrescar = () => _tabla.setRows(visibles());
+  const refrescar = () => _acc.setGrupos(gruposVisibles());
   $("publicadosBuscar")?.addEventListener("input", refrescar);
   $("publicadosSoloVisibles")?.addEventListener("change", refrescar);
-  // Cambiar de sucursal reconstruye las columnas, así que hay que repintar la cabecera.
-  $("publicadosSucursal")?.addEventListener("change", () => {
-    pintarCabecera();
-    _tabla.setRows(visibles());
+  // Cambiar de sucursal cambia las columnas → hay que reconstruir el acordeón entero.
+  $("publicadosSucursal")?.addEventListener("change", construir);
+  $("publicadosExpandir")?.addEventListener("click", () => {
+    const algunAbierto = document.querySelector("#publicadosAcc .rc-acc-grupo.abierto");
+    if (algunAbierto) _acc.cerrarTodos(); else _acc.abrirTodos();
   });
+  $("publicadosExportar")?.addEventListener("click", exportar);
+}
+
+function exportar() {
+  const filas = visibles();
+  if (!filas.length) return toastError("No hay materiales para exportar.");
+  const cols = [
+    { clave: "categoria_nombre", titulo: "Categoría" },
+    { clave: "material", titulo: "Material" },
+    ...sucVisibles().map((s) => ({
+      clave: "suc_" + s.sucursal_id, titulo: s.nombre,
+      map: (_, r) => r.precios[s.sucursal_id]?.precio ?? "",
+    })),
+    ...EMPRESAS.map((e) => ({
+      clave: "emp_" + e.id, titulo: e.etiqueta,
+      map: (_, r) => (r.visible[e.id] ? "Sí" : "No"),
+    })),
+  ];
+  descargarCSV("publicados", filas, cols);
+  toast(`Exportados ${filas.length} material(es).`);
 }
 
 // ── Reinicio de precios (solo gerencia) ───────────────────────────────────────
-// "Soft reset": no borra filas, cierra la vigencia de los precios actuales. La vitrina
-// queda en blanco al instante porque las vistas filtran `vigencia_hasta IS NULL`, pero
-// el histórico, la auditoría y la tabla de materiales quedan intactos.
-//
-// Respeta el filtro de sucursal de la pantalla: si hay una elegida, reinicia solo esa.
-// Es la diferencia entre vaciar una sucursal y vaciarlas las cuatro.
 function cablearReinicio() {
   const btn = $("publicadosReiniciar");
   if (!btn) return;
@@ -353,7 +398,7 @@ function cablearReinicio() {
     try {
       cuantos = await contarReinicioPrecios(sucId);
     } catch (e) {
-      return abrirModal({ titulo: "No se pudo consultar", cuerpoHTML: `<p>${esc(e.message)}</p>` });
+      return toastError(e.message);
     }
     if (!cuantos) {
       return abrirModal({
@@ -385,21 +430,14 @@ function cablearReinicio() {
         { texto: "Reiniciar", primario: true, cerrar: false, onClick: async () => {
             const err = $("pubReiError");
             const motivo = ($("pubReiMotivo")?.value || "").trim();
-            if (!motivo) {
-              err.textContent = "Escribe el motivo para continuar.";
-              err.style.display = "block";
-              return;
-            }
+            if (!motivo) { err.textContent = "Escribe el motivo para continuar."; err.style.display = "block"; return; }
             try {
               const res = await reiniciarPrecios({ motivo, sucursalId: sucId });
               cerrarModal();
-              await mountPublicados();   // recarga todo: precios y visibilidad
-              const el = $("publicadosResumen");
-              if (el) el.textContent = `♻️ ${res.precios_retirados} precio(s) retirados. ` +
-                `Carga la lista nueva desde Carga Manual.`;
+              await mountPublicados();
+              toast(`♻️ ${res.precios_retirados} precio(s) retirados. Carga la lista nueva desde Carga Manual.`);
             } catch (e) {
-              err.textContent = e.message;
-              err.style.display = "block";
+              err.textContent = e.message; err.style.display = "block";
             }
           } },
       ],
@@ -411,12 +449,13 @@ function cablearReinicio() {
 function actualizarResumen() {
   const el = $("publicadosResumen");
   if (!el) return;
-  // _filas ya viene filtrada a materiales con precio vigente (los que se pueden publicar).
   const cuenta = (id) => _filas.filter((r) => r.visible[id]).length;
   el.textContent =
     `${_filas.length} material(es) con precio vigente. ` +
     `En la web: ${cuenta("farex")} en FAREX · ${cuenta("reciclean_spa")} en Reciclean. ` +
     `Los materiales sin precio se gestionan en el Catálogo.`;
+  const info = $("publicadosInfo");
+  if (info) info.textContent = `${visibles().length} material(es) en ${gruposVisibles().length} categoría(s).`;
 }
 
 function pintarRol() {

@@ -1,62 +1,58 @@
-// CONTROLADOR · Historial de precios. Auditoría de variaciones (punto 5).
+// CONTROLADOR · Historial de precios. Auditoría de variaciones, agrupada por categoría.
 //
-// Antes mostraba el flujo de borradores; ahora es una vista limpia enfocada SOLO en cómo
-// varió cada precio en el tiempo: fecha, usuario, sucursal, material, precio anterior y
-// nuevo. Fuente: public.historial_precios (deriva de precios_v3.precio_auditoria).
+// Vista de solo lectura enfocada en cómo varió cada precio en el tiempo: fecha, usuario,
+// sucursal, material, precio anterior y nuevo. Fuente: public.historial_precios.
+//
+// Ahora se agrupa en un acordeón POR CATEGORÍA (ya no una tabla plana inmensa): cada
+// categoría lista sus cambios, del más reciente al más antiguo.
 //
 // Preparado para graficar: seriesParaGrafico() arma un {material×sucursal → [{x:fecha,
-// y:precio}]} que se puede pasar casi tal cual a Chart.js cuando se agregue. Se deja
-// disponible en window.__historialSeries para inspección y para ese uso futuro.
+// y:precio}]} listo para Chart.js. Se deja en window.__historialSeries.
 import { listarHistorialPrecios } from "../models/preciosRepo.js";
-import { montarTabla } from "../js/listaTabla.js";
-import { escapeHTML, horaChile } from "../js/util.js";
+import { montarAcordeon, agruparPorCategoria } from "../components/acordeon.js";
+import { toast, toastError } from "../components/toast.js";
+import { escapeHTML, horaChile, descargarCSV } from "../js/util.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
-const fila = (txt) => `<tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">${txt}</td></tr>`;
 
-// Etiqueta y color de cada tipo de variación.
 const VAR = {
-  alta:   { txt: "Alta",    css: "bg-sky-100 text-sky-800",       ico: "＋" },
+  alta:   { txt: "Alta",    css: "bg-sky-100 text-sky-800",         ico: "＋" },
   sube:   { txt: "Subió",   css: "bg-emerald-100 text-emerald-800", ico: "▲" },
-  baja:   { txt: "Bajó",    css: "bg-amber-100 text-amber-800",    ico: "▼" },
-  retiro: { txt: "Retiro",  css: "bg-rose-100 text-rose-700",      ico: "×" },
-  igual:  { txt: "Igual",   css: "bg-stone-100 text-stone-600",    ico: "=" },
+  baja:   { txt: "Bajó",    css: "bg-amber-100 text-amber-800",     ico: "▼" },
+  retiro: { txt: "Retiro",  css: "bg-rose-100 text-rose-700",       ico: "×" },
+  igual:  { txt: "Igual",   css: "bg-stone-100 text-stone-600",     ico: "=" },
 };
 
-let _tabla = null;
+let _acc = null;
 let _debounce = null;
 let _rows = [];
 
 export async function mountHistorial() {
-  const body = $("hisBody");
-  body.innerHTML = fila("Cargando…");
+  const cont = $("hisAcc");
+  cont.innerHTML = `<div class="text-center text-stone-400 text-sm py-8">Cargando…</div>`;
 
   try {
     _rows = await consultar();
-    _tabla = montarTabla({
-      tbody: body, thead: $("hisHead"), info: $("hisInfo"), pager: $("hisPager"),
-      rows: aplicarFiltroLocal(_rows), renderRow, colspan: 7, pageSize: 50,
-      vacio: "Sin cambios de precio registrados todavía.",
-      sortInicial: { key: "fecha", dir: "desc" },
-      sorters: {
-        fecha:     (r) => r.created_at || "",
-        usuario:   (r) => r.actor_email || "",
-        material:  (r) => r.material || "",
-        sucursal:  (r) => r.sucursal || "",
-        anterior:  (r) => Number(r.precio_anterior ?? -1),
-        nuevo:     (r) => Number(r.precio_nuevo ?? -1),
-        variacion: (r) => Number(r.variacion_pct ?? 0),
-      },
-      infoText: (t, p, pg) => `${t} cambio(s) · página ${p} de ${pg}.`,
+    _acc = montarAcordeon({
+      contenedor: cont,
+      columnas: [
+        { th: "Fecha" }, { th: "Usuario" }, { th: "Material" }, { th: "Sucursal" },
+        { th: "Precio anterior", align: "right" }, { th: "Precio nuevo", align: "right" },
+        { th: "Variación" },
+      ],
+      grupos: gruposVisibles(),
+      renderRow,
+      abrir: "primero",
+      vacio: "Sin cambios de precio en esta categoría.",
     });
-    cablearFiltros();
+    cablearControles();
     pintarKpis(_rows);
-    seriesParaGrafico(_rows);   // deja la estructura lista para Chart.js
+    seriesParaGrafico(_rows);
     resumen(_rows.length);
   } catch (e) {
-    body.innerHTML = fila("❌ No pude cargar el historial: " + esc(e.message));
+    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">❌ No pude cargar el historial: ${esc(e.message)}</div>`;
   }
 }
 
@@ -64,10 +60,14 @@ function consultar() {
   return listarHistorialPrecios({ texto: $("hisBuscar")?.value || "", limite: 2000 });
 }
 
-// El tipo de variación se filtra en memoria (columna calculada por la base, barata de filtrar).
+// El tipo de variación se filtra en memoria (columna calculada por la base).
 function aplicarFiltroLocal(rows) {
   const v = $("hisVariacion")?.value || "";
   return v ? rows.filter((r) => r.variacion === v) : rows;
+}
+
+function gruposVisibles() {
+  return agruparPorCategoria(aplicarFiltroLocal(_rows)).filter((g) => g.filas.length);
 }
 
 function renderRow(r) {
@@ -99,12 +99,9 @@ function pintarKpis(rows) {
 }
 
 // ── Estructura para gráficos (Chart.js futuro) ────────────────────────────────
-// Devuelve { "material · sucursal": [{ x: fecha, y: precio }] } ordenado ascendente por
-// fecha: es casi el formato de un dataset de líneas. Se guarda en window para engancharlo
-// sin tocar este archivo cuando se agregue la librería.
 function seriesParaGrafico(rows) {
   const series = {};
-  [...rows].reverse().forEach((r) => {          // reverse: del más antiguo al más nuevo
+  [...rows].reverse().forEach((r) => {          // del más antiguo al más nuevo
     if (r.precio_nuevo == null) return;          // los retiros no aportan punto de precio
     const clave = `${r.material} · ${r.sucursal || "—"}`;
     (series[clave] ||= []).push({ x: r.created_at, y: Number(r.precio_nuevo) });
@@ -113,12 +110,12 @@ function seriesParaGrafico(rows) {
   return series;
 }
 
-// ── Filtros ───────────────────────────────────────────────────────────────────
-function cablearFiltros() {
+// ── Controles ─────────────────────────────────────────────────────────────────
+function cablearControles() {
   const recargar = async () => {
     try {
       _rows = await consultar();
-      _tabla.setRows(aplicarFiltroLocal(_rows));
+      _acc.setGrupos(gruposVisibles());
       pintarKpis(_rows);
       seriesParaGrafico(_rows);
       resumen(_rows.length);
@@ -132,12 +129,35 @@ function cablearFiltros() {
     _debounce = setTimeout(recargar, 300);
   });
   // El tipo de variación filtra en memoria: no hace falta reconsultar.
-  $("hisVariacion")?.addEventListener("change", () => {
-    _tabla.setRows(aplicarFiltroLocal(_rows));
+  $("hisVariacion")?.addEventListener("change", () => _acc.setGrupos(gruposVisibles()));
+  $("hisExpandir")?.addEventListener("click", () => {
+    const algunAbierto = document.querySelector("#hisAcc .rc-acc-grupo.abierto");
+    if (algunAbierto) _acc.cerrarTodos(); else _acc.abrirTodos();
   });
+  $("hisExportar")?.addEventListener("click", exportar);
+}
+
+function exportar() {
+  const filas = aplicarFiltroLocal(_rows);
+  if (!filas.length) return toastError("No hay movimientos para exportar.");
+  descargarCSV("historial_precios", filas, [
+    { clave: "created_at", titulo: "Fecha", map: (v) => horaChile(v) },
+    { clave: "actor_email", titulo: "Usuario" },
+    { clave: "categoria_nombre", titulo: "Categoría" },
+    { clave: "material", titulo: "Material" },
+    { clave: "sucursal", titulo: "Sucursal" },
+    { clave: "precio_anterior", titulo: "Precio anterior" },
+    { clave: "precio_nuevo", titulo: "Precio nuevo" },
+    { clave: "variacion", titulo: "Variación", map: (v) => (VAR[v]?.txt || v) },
+    { clave: "variacion_pct", titulo: "Variación %" },
+    { clave: "motivo", titulo: "Motivo" },
+  ]);
+  toast(`Exportados ${filas.length} movimiento(s).`);
 }
 
 function resumen(n, error = null) {
   const el = $("hisResumen");
   if (el) el.textContent = error ? "⚠️ " + error : `${n} resultado(s)`;
+  const info = $("hisInfo");
+  if (info && !error) info.textContent = `${aplicarFiltroLocal(_rows).length} cambio(s) en ${gruposVisibles().length} categoría(s).`;
 }

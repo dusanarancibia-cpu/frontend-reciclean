@@ -74,3 +74,42 @@ export function filtroGlobal(filas, texto, campos = null) {
     return palabras.every((p) => heno.includes(p));
   });
 }
+
+// ── Exportar a CSV (abrible en Excel) ────────────────────────────────────────
+// Descarga `filas` como CSV. `columnas` define qué exportar y en qué orden:
+//   [{ clave, titulo, map? }]   → map(valor, fila) opcional para formatear.
+// Detalles que importan para que Excel Chile lo abra bien:
+//  · Separador ';' (Excel en configuración regional CL usa ';', no ',').
+//  · BOM UTF-8 al inicio para que respete acentos y la ñ.
+//  · Cada campo entre comillas, con las comillas internas duplicadas (RFC 4180).
+// El nombre recibe la fecha para no pisar descargas anteriores.
+function celdaCSV(v) {
+  if (v == null) return '""';
+  return '"' + String(v).replace(/"/g, '""') + '"';
+}
+
+export function descargarCSV(nombreBase, filas, columnas) {
+  const cols = columnas && columnas.length
+    ? columnas
+    : Object.keys(filas[0] || {}).map((k) => ({ clave: k, titulo: k }));
+  const sep = ";";
+  const cabecera = cols.map((c) => celdaCSV(c.titulo ?? c.clave)).join(sep);
+  const cuerpo = (filas || []).map((fila) =>
+    cols.map((c) => {
+      const bruto = fila[c.clave];
+      const val = typeof c.map === "function" ? c.map(bruto, fila) : bruto;
+      return celdaCSV(val);
+    }).join(sep),
+  );
+  const texto = "﻿" + [cabecera, ...cuerpo].join("\r\n"); // ﻿ = BOM
+  const hoy = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const stamp = `${hoy.getFullYear()}-${p(hoy.getMonth() + 1)}-${p(hoy.getDate())}`;
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([texto], { type: "text/csv;charset=utf-8;" }));
+  a.download = `${nombreBase}_${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  return filas.length;
+}

@@ -25,6 +25,25 @@ let _matByName = new Map();  // normId(nombre) → material_id
 let _nameById = new Map();   // material_id → nombre (para mostrar el canónico)
 let _email = null;
 
+// CACHÉ del catálogo para el autocompletado: se consulta la BD UNA vez por sesión de página
+// y se filtra en memoria (el datalist ya filtra local). Volver a entrar a Carga Manual no
+// vuelve a pegarle a Supabase. Es una promesa para que llamadas concurrentes compartan la
+// misma consulta en vuelo. `refrescarCacheMateriales()` la invalida si hiciera falta.
+let _cacheMateriales = null;
+function cargarMateriales() {
+  if (_cacheMateriales) return _cacheMateriales;
+  _cacheMateriales = getClient()
+    .from("materiales_panel")
+    .select("material_id, nombre_interno")
+    .eq("activo", true).order("nombre_interno").limit(2000)
+    .then(({ data, error }) => {
+      if (error) { _cacheMateriales = null; throw error; }   // no cachees un fallo
+      return data || [];
+    });
+  return _cacheMateriales;
+}
+export function refrescarCacheMateriales() { _cacheMateriales = null; }
+
 // Fecha de hoy en formato YYYY-MM-DD, con la hora LOCAL (no UTC, que cerca de medianoche
 // devolvería el día equivocado). La vigencia del modelo es por día.
 function hoyISO() {
@@ -265,13 +284,12 @@ async function onEnviar() {
 export async function mountCargaManual() {
   const body = $("cmBody");
   try {
-    const sb = getClient();
-    const [{ data: mats, error: em }, sess] = await Promise.all([
-      sb.from("materiales_panel").select("material_id, nombre_interno")
-        .eq("activo", true).order("nombre_interno").limit(2000),
+    // El catálogo sale del caché (1 sola consulta por sesión de página); la sesión se lee
+    // aparte. Ambas en paralelo.
+    const [mats, sess] = await Promise.all([
+      cargarMateriales(),
       getSession().catch(() => null),
     ]);
-    if (em) throw em;
 
     _email = sess?.user?.email || null;
     // Opciones del datalist: el value es el NOMBRE (lo que se escribe y autocompleta).

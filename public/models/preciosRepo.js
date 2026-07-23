@@ -71,7 +71,8 @@ export async function actualizarPrecio({ materialId, sucursalId, publicado, reci
 export async function listarVitrina() {
   const { data, error } = await getClient()
     .from("vitrina_panel")
-    .select("material_id, material, nombre_publico, empresa_id, visible, precio_referencia, orden, mi_rol")
+    .select("material_id, material, nombre_publico, empresa_id, visible, precio_referencia, orden, " +
+            "categoria, categoria_nombre, categoria_orden, mi_rol")
     .order("orden");
   if (error) throw new Error(error.message);
 
@@ -84,6 +85,9 @@ export async function listarVitrina() {
         nombre_publico: f.nombre_publico,
         precio_referencia: f.precio_referencia,
         orden: f.orden ?? 9999,   // el orden de la lista en papel; sin él, al final
+        categoria: f.categoria || "_sin",
+        categoria_nombre: f.categoria_nombre || "Sin categoría",
+        categoria_orden: f.categoria_orden ?? 999,
         mi_rol: f.mi_rol,
         visible: {},
       });
