@@ -1,0 +1,46 @@
+<!-- VISTA · Materiales y Precios (modelo precios_v3).
+     Los IDs los consume /controllers/materialesController.js — no renombrar sin actualizarlo. -->
+<section class="max-w-6xl mx-auto p-4 md:p-6">
+  <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>🏷️</span><span>Materiales y Precios</span></h2>
+      <p class="text-sm text-stone-500 mt-1">
+        Haz clic sobre un precio para editarlo, igual que en una planilla. <b>Enter</b> guarda, <b>Esc</b> cancela.
+      </p>
+    </div>
+    <span id="matRolChip" class="chip off">cargando…</span>
+  </header>
+
+  <!-- Aviso de solo lectura (se muestra solo si el rol no es gerencia) -->
+  <div id="matAvisoRol" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-800 border border-amber-200"></div>
+
+  <!-- Filtros -->
+  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
+    <input id="matBuscar" type="search" placeholder="Buscar material…"
+      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[180px]">
+    <select id="matSucursal" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
+      <option value="">Todas las sucursales</option>
+    </select>
+    <span id="matResumen" class="text-xs text-stone-500"></span>
+  </div>
+
+  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead id="matHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
+        <tr>
+          <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
+          <th class="text-left px-4 py-2.5" data-sort="sucursal">Sucursal</th>
+          <th class="text-right px-4 py-2.5" data-sort="venta">Precio de venta</th>
+          <th class="text-right px-4 py-2.5 matSoloGerencia" data-sort="compra">Costo</th>
+          <th class="text-right px-4 py-2.5 matSoloGerencia" data-sort="margen">Margen</th>
+          <th class="text-left px-4 py-2.5" data-sort="vigencia">Vigente desde</th>
+        </tr>
+      </thead>
+      <tbody id="matBody" class="divide-y divide-stone-100">
+        <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="matPager"></div>
+  <p class="text-xs text-stone-500 mt-3" id="matInfo"></p>
+</section>
