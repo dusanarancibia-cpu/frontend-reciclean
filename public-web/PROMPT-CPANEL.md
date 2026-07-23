@@ -51,6 +51,7 @@ Columnas exactas (verificadas contra el esquema real):
 | `precio` | numeric | **CLP por unidad. Es lo que la empresa LE PAGA a quien trae el material** |
 | `unidad` | text | normalmente `kg` |
 | `actualizado` | date | desde cuándo rige ese precio |
+| `categoria` | text | agrupación del material (`metal_cobre`, `plastico_pet`, …) para filtros |
 
 Filtrado por empresa (sintaxis PostgREST):
 `...precios_publicos?select=material,sucursal,precio&empresa=eq.FAREX&order=material`
@@ -150,6 +151,37 @@ Si prefieres no cargar el SDK, `fetch` directo a la URL REST funciona igual de b
 
 - **El precio es lo que la empresa PAGA a quien lleva el material**, no lo que cobra.
   Redáctalo así en la web: "pagamos $X por kilo", nunca "precio de venta".
+
+---
+
+## SOBRE EL WIDGET QUE YA EXISTE EN farex.cl
+
+En `farex.cl/ver-precios-metales/` hay un bloque KingComposer con buen diseño (tabs por
+sucursal, buscador, selector de categoría, grid de tarjetas) que ya intenta leer de Supabase
+y falla. Esto es lo que pasa y cómo proceder:
+
+- **Los 401 que ves son correctos y deliberados. NO los "arregles" restaurando el acceso.**
+  Ese widget leía `v_precios_activos`, `materiales` y `asistente_snapshot`, que exponían
+  `margen`, `precio_lista`, `precio_maximo`, `precio_ejecutivo`, `flete` y las metas de kilos
+  al público. Se revocó el acceso anónimo a propósito. Si algo devuelve 401, es la seguridad
+  funcionando: cámbiate a `precios_publicos`, no busques la manera de volver a entrar.
+
+- **Conserva el diseño y reescribe solo la capa de datos.** Es el enfoque correcto: el HTML,
+  los tabs y los estilos se quedan; cambia únicamente el fetch y el render de filas.
+
+- **El filtro de categoría se queda, con dato real.** La vista pública ahora incluye la
+  columna `categoria`. No inventes categorías por heurística de nombre: usa ese campo.
+  Aviso: hoy la taxonomía viene del catálogo antiguo y tiene duplicados semánticos
+  (`metal_ferroso` y `metales_ferrosos`, `papel_carton` y `celulosa_carton`). Los valores
+  sirven para filtrar, pero si los muestras crudos se verán categorías repetidas.
+  Muéstralos formateados y avisa del detalle; la limpieza del catálogo es tarea del panel.
+
+- **Usa la anon key JWT de este documento.** La clave `sb_publishable_…` que hay hoy en el
+  widget también funciona (ambas resuelven al mismo rol), pero unifica en la documentada.
+
+- **`v_precios_activos` no tiene reemplazo columna a columna.** No existen `precio_lista`,
+  `precio_maximo` ni banderas `reciclean`/`farex` por fila. El equivalente es: una fila por
+  material × sucursal × empresa, y filtras por `empresa_id`.
 
 ---
 
