@@ -43,3 +43,34 @@ export function iniciarRelojChile(selector = ".reloj-chile") {
   tick();
   return setInterval(tick, 30000);
 }
+
+// ── Buscador global por cualquier campo ──────────────────────────────────────
+// Una sola implementación para todas las listas (Pendientes, Historial, Publicados,
+// Materiales) en vez de repetir el patrón en cada controlador.
+// Compara sin acentos ni mayúsculas y acepta varias palabras: "cobre maipu" exige AMBAS.
+
+export function normalizarTexto(s) {
+  return String(s ?? "").toLowerCase().normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")   // saca los acentos
+    .replace(/\s+/g, " ").trim();
+}
+
+// Concatena los valores de la fila. `campos` limita qué columnas mirar; si se omite,
+// se miran todas las de tipo simple (los objetos anidados se ignoran a propósito).
+function textoDeFila(fila, campos) {
+  const claves = campos || Object.keys(fila);
+  return normalizarTexto(claves.map((k) => {
+    const v = fila[k];
+    return v == null || typeof v === "object" ? "" : v;
+  }).join(" "));
+}
+
+export function filtroGlobal(filas, texto, campos = null) {
+  const q = normalizarTexto(texto);
+  if (!q) return filas;
+  const palabras = q.split(" ");
+  return filas.filter((f) => {
+    const heno = textoDeFila(f, campos);
+    return palabras.every((p) => heno.includes(p));
+  });
+}
