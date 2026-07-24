@@ -162,22 +162,42 @@ function pintarSucursales() {
   cont.querySelectorAll(".calcSucTicket").forEach((b) =>
     b.addEventListener("click", () => toggleSucursal(b.dataset.suc)));
 
-  const n = _sucSel.size;
+  // El conteo cuenta sucursales FÍSICAS: "santiago" es un meta-ticket (sus 2 miembros ya
+  // están en el set cuando está activo), así que no se suma para no inflar el número.
+  const n = [..._sucSel].filter((id) => id !== SANTIAGO).length;
   const hint = $("calcSucursalHint");
   if (hint) hint.textContent = n === 0 ? "Ninguna seleccionada."
     : `${n} sucursal(es): el precio se publicará en todas.`;
 }
 
+// "Santiago" es un META-TICKET: está activo si y solo si SUS DOS sucursales (Maipú y
+// Cerrillos) lo están. Reconciliar esa invariante después de cada clic cubre las 4 reglas:
+//   1. Activar Santiago      → activa Maipú y Cerrillos.
+//   2. Desactivar Santiago   → desactiva Maipú y Cerrillos.
+//   3. Quitar Maipú/Cerrillos → Santiago se apaga solo (el grupo dejó de estar completo).
+//   4. Poner Maipú y Cerrillos por separado → Santiago se enciende solo (grupo completo).
+// Talca y Puerto Montt no participan del grupo: sus clics no lo tocan (regla 5).
 function toggleSucursal(id) {
   const activar = !_sucSel.has(id);
   if (activar) _sucSel.add(id); else _sucSel.delete(id);
-  // Marcar "Santiago" arrastra a Cerrillos + Maipú (y desmarcarla las quita). Así el
-  // usuario ve las tres casillas marcadas, coherente con el fanout de la publicación.
+
   if (id === SANTIAGO) {
+    // Clic sobre el grupo: arrastra a sus dos sucursales (reglas 1 y 2).
     SANTIAGO_FANOUT.forEach((s) => { if (activar) _sucSel.add(s); else _sucSel.delete(s); });
+  } else if (SANTIAGO_FANOUT.includes(id)) {
+    // Clic sobre una sucursal del grupo: puede completarlo (regla 4) o romperlo (regla 3).
+    sincronizarSantiago();
   }
+  // Talca / Puerto Montt (u otras futuras) caen fuera de ambos ifs: independientes (regla 5).
+
   pintarSucursales();
   cargarVigente(); // el delta vs vigente se recalcula contra la primera sucursal marcada
+}
+
+// Deriva el estado del meta-ticket Santiago desde sus miembros: activo ⇔ ambos activos.
+function sincronizarSantiago() {
+  if (SANTIAGO_FANOUT.every((s) => _sucSel.has(s))) _sucSel.add(SANTIAGO);
+  else _sucSel.delete(SANTIAGO);
 }
 
 // ── Selección de un caso ──────────────────────────────────────────────────────
@@ -194,6 +214,10 @@ function seleccionar(id) {
   // Selección de sucursales para este pendiente: parte desde cero (o con la que trajera
   // el borrador, si venía asignada). El usuario marca las que quiera antes de enviar.
   _sucSel = new Set(_sel.sucursal_id ? [_sel.sucursal_id] : []);
+  // Normaliza la invariante de Santiago: si venía "santiago", que sus miembros queden
+  // marcados; y en cualquier caso, que el meta-ticket refleje si el grupo está completo.
+  if (_sucSel.has(SANTIAGO)) SANTIAGO_FANOUT.forEach((s) => _sucSel.add(s));
+  sincronizarSantiago();
   pintarSucursales();
 
   // Precio Venta: DATO FIJO = lo que nos paga la fundición (precio recibido del pendiente).
