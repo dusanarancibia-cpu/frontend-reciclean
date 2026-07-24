@@ -145,6 +145,11 @@ function cablearControles() {
     btnCat.classList.remove("hidden");
     btnCat.addEventListener("click", abrirGestionCategorias);
   }
+  const btnEmp = $("catEmpresas");
+  if (btnEmp && _rol === "gerencia") {
+    btnEmp.classList.remove("hidden");
+    btnEmp.addEventListener("click", abrirGestionEmpresas);
+  }
   refrescar();
 }
 
@@ -332,6 +337,116 @@ function abrirGestionCategorias() {
     await guardarCat(null, nombre, parseInt($("gcNuevoOrden").value, 10) || 99, true, $("gcCrear"));
     cerrarModal();
     abrirGestionCategorias();   // reabre con la lista fresca
+  });
+}
+
+// ── Gestión de empresas / clientes (CRUD, solo gerencia) ──────────────────────
+// Crear, renombrar, activar/desactivar y ELIMINAR las empresas/fundiciones a las que
+// vendemos. Fuente: public.empresas_panel; escribe con f_empresa_guardar / f_empresa_eliminar.
+// Se lee fresco cada vez que se abre (no vive en el estado del catálogo).
+async function abrirGestionEmpresas() {
+  let empresas = [];
+  try {
+    const { data, error } = await getClient().from("empresas_panel").select("*");
+    if (error) throw new Error(error.message);
+    empresas = data || [];
+  } catch (e) {
+    return toastError(/gerencia/i.test(e.message) ? "Solo gerencia administra empresas." : e.message);
+  }
+
+  const filaEmp = (e) => `
+    <tr data-emp="${esc(e.empresa_id)}" style="border-top:1px solid #f1f0ef">
+      <td style="padding:6px 4px"><input class="geNombre" value="${esc(e.nombre_publico)}" style="width:100%;padding:6px;border:1px solid #d6d3d1;border-radius:6px"></td>
+      <td style="padding:6px 4px"><input class="geRazon" value="${esc(e.razon_social || "")}" placeholder="—" style="width:100%;padding:6px;border:1px solid #d6d3d1;border-radius:6px"></td>
+      <td style="padding:6px 4px;text-align:center;width:44px"><input class="geActiva" type="checkbox" ${e.activa ? "checked" : ""}></td>
+      <td style="padding:6px 4px;color:#a8a29e;font-size:12px;text-align:right;width:48px">${e.usos ?? 0}</td>
+      <td style="padding:6px 4px;text-align:right;white-space:nowrap;width:150px">
+        <button type="button" class="geGuardar" style="background:#047857;color:#fff;border:0;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer">Guardar</button>
+        <button type="button" class="geEliminar" style="background:#fff;border:1px solid #fca5a5;color:#b91c1c;border-radius:6px;padding:6px 9px;font-size:12px;font-weight:600;cursor:pointer;margin-left:4px">Eliminar</button>
+      </td>
+    </tr>`;
+
+  abrirModal({
+    titulo: "Empresas / Clientes",
+    cuerpoHTML: `
+      <p style="font-size:13px;color:#78716c;margin-bottom:10px">Empresas/fundiciones a las que vendemos. "Usos" = precios que llevan ese nombre. Alimentan el selector de Carga Manual.</p>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="color:#78716c;font-size:11px;text-transform:uppercase">
+          <th style="text-align:left;padding:4px">Nombre</th><th style="text-align:left;padding:4px">Razón social</th>
+          <th style="padding:4px">Activa</th><th style="padding:4px">Usos</th><th></th></tr></thead>
+        <tbody id="geBody">${empresas.map(filaEmp).join("") || `<tr><td colspan="5" style="padding:10px;color:#a8a29e;text-align:center">Sin empresas aún.</td></tr>`}</tbody>
+      </table>
+      <div style="border-top:1px solid #e7e5e4;margin-top:12px;padding-top:12px">
+        <span style="font-size:12px;color:#57534e;font-weight:600">Nueva empresa</span>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <input id="geNuevoNombre" placeholder="Nombre" style="flex:1;min-width:120px;padding:7px;border:1px solid #d6d3d1;border-radius:6px">
+          <input id="geNuevaRazon" placeholder="Razón social (opcional)" style="flex:1;min-width:120px;padding:7px;border:1px solid #d6d3d1;border-radius:6px">
+          <button type="button" id="geCrear" style="background:#047857;color:#fff;border:0;border-radius:6px;padding:7px 12px;font-weight:600;cursor:pointer">Crear</button>
+        </div>
+      </div>`,
+    acciones: [{ texto: "Cerrar", primario: true }],
+  });
+
+  const guardarEmp = async (id, nombre, razon, activa, btn) => {
+    if (btn) { btn.disabled = true; btn.textContent = "…"; }
+    try {
+      const { error } = await getClient().rpc("f_empresa_guardar", {
+        p_id: id, p_nombre_publico: nombre, p_razon_social: razon || null, p_activa: activa,
+      });
+      if (error) throw new Error(error.message);
+      toast("Empresa guardada.");
+    } catch (e) {
+      toastError(/gerencia/i.test(e.message) ? "Solo gerencia administra empresas." : e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Guardar"; }
+    }
+  };
+
+  document.querySelectorAll("#geBody .geGuardar").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tr = btn.closest("tr");
+      const nombre = tr.querySelector(".geNombre").value.trim();
+      if (!nombre) return toastError("El nombre no puede quedar vacío.");
+      guardarEmp(tr.dataset.emp, nombre, tr.querySelector(".geRazon").value.trim(),
+        tr.querySelector(".geActiva").checked, btn);
+    });
+  });
+  document.querySelectorAll("#geBody .geEliminar").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tr = btn.closest("tr");
+      confirmarEliminarEmpresa(tr.dataset.emp, tr.querySelector(".geNombre").value.trim());
+    });
+  });
+  $("geCrear")?.addEventListener("click", async () => {
+    const nombre = $("geNuevoNombre").value.trim();
+    if (!nombre) return toastError("Escribe el nombre de la empresa.");
+    await guardarEmp(null, nombre, $("geNuevaRazon").value.trim(), true, $("geCrear"));
+    cerrarModal();
+    abrirGestionEmpresas();   // reabre con la lista fresca
+  });
+}
+
+// Confirmación de borrado. Reabre la lista al cancelar o al confirmar (el modal es único).
+function confirmarEliminarEmpresa(id, nombre) {
+  abrirModal({
+    titulo: "Eliminar empresa",
+    cuerpoHTML: `<p>¿Eliminar <b>${esc(nombre || id)}</b> del maestro de empresas?</p>
+      <p style="font-size:13px;color:#78716c;margin-top:8px">Los precios que ya llevan este nombre NO se tocan (queda como texto en su historial). Solo se quita de la lista de selección.</p>`,
+    acciones: [
+      { texto: "Cancelar", onClick: () => abrirGestionEmpresas() },
+      { texto: "Eliminar", primario: true, onClick: async () => {
+          try {
+            const { error } = await getClient().rpc("f_empresa_eliminar", { p_id: id });
+            if (error) throw new Error(error.message);
+            toast("Empresa eliminada.");
+          } catch (e) {
+            toastError(/gerencia/i.test(e.message) ? "Solo gerencia administra empresas." : e.message);
+          } finally {
+            cerrarModal();
+            abrirGestionEmpresas();
+          }
+        } },
+    ],
   });
 }
 

@@ -17,9 +17,19 @@ export function calcular(i) {
   const pmaxBruto   = Math.round(plistaBruto * (1 + b));
   const pejecBruto  = Math.round((plistaBruto + pmaxBruto) / 2);
   const ivaAmt      = Math.round(plistaBruto * iva);
-  const plista = redondear(plistaBruto - ivaAmt, i.modo);
-  const pmax   = redondear(pmaxBruto  - ivaAmt, i.modo);
-  const pejec  = redondear(pejecBruto - ivaAmt, i.modo);
+
+  // TECHO DE LA ESCALERA: ningún precio de compra puede superar el precio recibido (lo que
+  // nos paga la fundición, i.p). La BD lo exige con precio_escalera_coherente:
+  //   publicado <= ejecutivo <= maximo <= recibido   (y publicado <= recibido).
+  // Un margen bajo con spread alto haría pmax > recibido y la inserción fallaría. Se capa el
+  // resultado FINAL a i.p y se reordena la escalera para que SIEMPRE cumpla el constraint.
+  const techo = i.p;
+  const plista = Math.min(redondear(plistaBruto - ivaAmt, i.modo), techo);
+  let pmax     = Math.min(redondear(pmaxBruto  - ivaAmt, i.modo), techo);
+  pmax = Math.max(pmax, plista);                         // maximo >= publicado
+  let pejec    = redondear(pejecBruto - ivaAmt, i.modo);
+  pejec = Math.min(Math.max(pejec, plista), pmax);       // publicado <= ejecutivo <= maximo
+
   const contrib = Math.round(i.vol * (i.p - plistaBruto - i.fl));
   return { plistaBruto, pmaxBruto, pejecBruto, plista, pmax, pejec, ivaAmt, contrib };
 }

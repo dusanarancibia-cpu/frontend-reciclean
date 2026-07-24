@@ -71,10 +71,15 @@ function consultar() {
   return listarHistorialPrecios({ texto: $("hisBuscar")?.value || "", limite: 2000 });
 }
 
-// El tipo de variación se filtra en memoria (columna calculada por la base).
+// Filtros en memoria: tipo de variación + estado (activo/histórico). Ambos vienen calculados
+// por la base (variacion; activo = precio de esa fila aún vigente).
 function aplicarFiltroLocal(rows) {
   const v = $("hisVariacion")?.value || "";
-  return v ? rows.filter((r) => r.variacion === v) : rows;
+  const est = $("hisEstado")?.value || "";
+  let out = v ? rows.filter((r) => r.variacion === v) : rows;
+  if (est === "activo") out = out.filter((r) => r.activo);
+  else if (est === "inactivo") out = out.filter((r) => !r.activo);
+  return out;
 }
 
 function gruposVisibles() {
@@ -139,8 +144,9 @@ function cablearControles() {
     clearTimeout(_debounce);
     _debounce = setTimeout(recargar, 300);
   });
-  // El tipo de variación filtra en memoria: no hace falta reconsultar.
-  $("hisVariacion")?.addEventListener("change", () => _acc.setGrupos(gruposVisibles()));
+  // El tipo de variación y el estado filtran en memoria: no hace falta reconsultar.
+  $("hisVariacion")?.addEventListener("change", () => { _acc.setGrupos(gruposVisibles()); resumen(_rows.length); });
+  $("hisEstado")?.addEventListener("change", () => { _acc.setGrupos(gruposVisibles()); resumen(_rows.length); });
   $("hisExpandir")?.addEventListener("click", () => {
     const algunAbierto = document.querySelector("#hisAcc .rc-acc-grupo.abierto");
     if (algunAbierto) _acc.cerrarTodos(); else _acc.abrirTodos();
