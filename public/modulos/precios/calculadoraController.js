@@ -17,7 +17,7 @@
 // Respecto de la versión original se quitó el selector de "Categoría margen": el semáforo
 // ahora compara contra un umbral único configurable en precios_v3.config_calculadora.
 import { calcular, semaforo } from "../../calculadora/js/model/formula.js";
-import { listarBorradores, enviarARevision, descartar, catalogos, configCalculadora } from "./flujoRepo.js";
+import { listarBorradores, enviarARevisionMulti, descartar, catalogos, configCalculadora } from "./flujoRepo.js";
 import { precioVigente } from "./preciosRepo.js";
 import { abrirModal } from "../../shared/components/modal.js";
 import { toast } from "../../shared/components/toast.js";
@@ -390,7 +390,6 @@ async function onPublicar() {
     vol: num("calcVolExacto"), modo: _modo,
   });
   const elegidas = sucursalesElegidas();            // ej. ["santiago","talca"]
-  const representante = elegidas[0];                 // sucursal_id que queda en el borrador
   const nombresSuc = elegidas
     .map((id) => _sucOpciones.find((o) => o.sucursal_id === id)?.nombre || id);
 
@@ -415,19 +414,19 @@ async function onPublicar() {
           const $m = $("calcMsg");
           try {
             $m.textContent = "Enviando…";
-            // Selección múltiple: la lista completa viaja en `calculo.sucursales`; el borrador
-            // guarda una sucursal representante. La aprobación en Revisión hace el fanout a
-            // TODAS (y expande "santiago" → Maipú + Cerrillos). La escalera va en `calculo`.
-            const res = await enviarARevision({
-              id: _sel.id, sucursalId: representante, precioPublicado: c.plista,
+            // Multi-sucursal: se genera UNA fila de borrador POR sucursal (el servidor expande
+            // "santiago" → Maipú + Cerrillos). Cada fila tiene un sucursal_id real, así se
+            // respeta la llave foránea borrador_sucursal_id_fkey. La escalera va en `calculo`.
+            const res = await enviarARevisionMulti({
+              id: _sel.id, sucursales: elegidas, precioPublicado: c.plista,
               calculo: {
                 ejecutivo: c.pejec, maximo: c.pmax, flete: num("calcFlNum"),
                 spread: num("calcBNum"), iva: num("calcIvaNum"), redondeo: _modo,
-                sucursales: elegidas,
               },
             });
             $m.textContent = "Enviado a revisión.";
-            toast("Enviado a revisión.", "exito");
+            const nFilas = Array.isArray(res?.revision_ids) ? res.revision_ids.length : (res?.sucursales?.length || 1);
+            toast(`Enviado a revisión: ${nFilas} fila(s), una por sucursal.`, "exito");
             // Resolución de duplicados: la BD descartó los otros pendientes del mismo material.
             const desc = Number(res?.descartados) || 0;
             if (desc > 0) toast(`Se archivaron ${desc} pendiente(s) duplicado(s) del mismo material (siguen en Recibidos).`, "info");
