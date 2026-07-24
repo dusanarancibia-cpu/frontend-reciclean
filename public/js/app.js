@@ -11,6 +11,7 @@ import { initDiego } from "../controllers/diegoController.js";
 import { mountCargaManual } from "../controllers/cargaManualController.js";
 import { mountPropuestas } from "../controllers/propuestasController.js";
 import { mountRevision } from "../controllers/revisionController.js";
+import { mountRecibidos } from "../controllers/recibidosController.js";
 import { mountPublicados } from "../controllers/publicadosController.js";
 import { mountMateriales } from "../controllers/materialesController.js";
 import { mountHistorial } from "../controllers/historialController.js";
@@ -58,6 +59,7 @@ const ROUTES = {
   calculadora:   { view: "calculadora", mount: mountCalculadora },
   publicados:    { view: "publicados",  mount: mountPublicados },
   historial:     { view: "historial",   mount: mountHistorial },
+  recibidos:     { view: "recibidos",   mount: mountRecibidos },
   // Administración
   materiales:    { view: "materiales",  mount: mountMateriales },
   catalogo:      { view: "catalogo",    mount: mountCatalogo },
