@@ -1,0 +1,113 @@
+<section class="com-page max-w-[1760px] mx-auto p-4 md:p-5 space-y-4">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL · Agenda</span>
+        <h1 class="com-title">Mesa de rutas</h1>
+      </div>
+      <p class="com-topbar-copy">Ruteo diario por plaza, reservas futuras y salida operativa antes del corte de las 17:00.</p>
+    </div>
+    <div class="com-actions">
+      <button id="comAgendaNuevoServicioBtn" type="button" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Nuevo servicio</button>
+      <button id="comAgendaPrintSelectedBtn" type="button" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Imprimir hoja seleccionada</button>
+    </div>
+  </header>
+
+  <section class="com-soft-card p-5">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <div>
+          <div class="com-panel-title">Fecha activa de despacho</div>
+          <input id="comAgendaActiveDate" type="date" class="com-input mt-2 min-w-[190px]" />
+        </div>
+        <span class="com-chip warn">Corte diario 17:00</span>
+        <span class="com-chip soft" id="comAgendaBoardSummary">0 rutas armadas</span>
+      </div>
+      <div class="flex flex-wrap gap-2" id="comAgendaPlazaStatus"></div>
+    </div>
+  </section>
+
+  <section class="grid gap-5 xl:grid-cols-[1.55fr,0.85fr]">
+    <div class="space-y-4">
+      <div class="com-route-board-grid" id="comAgendaRouteBoards"></div>
+
+      <section class="com-soft-card overflow-hidden">
+        <div class="px-6 py-5 border-b border-stone-200">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-stone-900">Vista previa hoja de ruta</h2>
+              <p class="mt-1 text-sm text-stone-500">Formato operativo cercano al PDF que hoy Andrea arma en Excel.</p>
+            </div>
+            <div class="flex gap-2">
+              <button id="comAgendaPreviewPrintBtn" type="button" class="com-action-btn">Generar PDF</button>
+              <button id="comAgendaPreviewWhatsappBtn" type="button" class="com-action-btn strong">Preparar envio WhatsApp</button>
+            </div>
+          </div>
+        </div>
+        <div class="p-6 space-y-4">
+          <div>
+            <div class="com-panel-title">Hoja seleccionada</div>
+            <h3 class="mt-2 text-2xl font-bold text-stone-900" id="comAgendaSheetTitle">—</h3>
+            <div class="mt-1 text-sm text-stone-500" id="comAgendaSheetMeta">—</div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="com-agenda-sheet-table">
+              <thead>
+                <tr>
+                  <th>Proveedor</th>
+                  <th>Camion</th>
+                  <th>Reciclaje</th>
+                  <th>Entrada</th>
+                  <th>Salida</th>
+                  <th>Destino final / instrucciones</th>
+                </tr>
+              </thead>
+              <tbody id="comAgendaSheetRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="space-y-4 com-side-rail">
+      <section class="com-soft-card p-5">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-stone-900">Calendario mensual</h2>
+            <p class="mt-1 text-sm text-stone-500">Vista mes con reservas e historico de rutas para construir trazabilidad.</p>
+          </div>
+          <span class="com-chip soft">Mes</span>
+        </div>
+        <div class="mt-4 flex items-center justify-between gap-3">
+          <button id="comAgendaMonthPrev" type="button" class="com-mini-btn">Mes anterior</button>
+          <div class="text-sm font-semibold text-stone-700" id="comAgendaMonthLabel">—</div>
+          <button id="comAgendaMonthNext" type="button" class="com-mini-btn">Mes siguiente</button>
+        </div>
+        <div class="com-agenda-calendar mt-4">
+          <div class="com-agenda-calendar-head">
+            <span>Lun</span>
+            <span>Mar</span>
+            <span>Mie</span>
+            <span>Jue</span>
+            <span>Vie</span>
+            <span>Sab</span>
+            <span>Dom</span>
+          </div>
+          <div class="com-agenda-calendar-grid" id="comAgendaPlannerGrid"></div>
+        </div>
+      </section>
+
+      <section class="com-soft-card p-5">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900">Rutas del dia seleccionado</h3>
+            <p class="text-sm text-stone-500">Lectura diaria para revisar reservas, historico y trazabilidad futura.</p>
+          </div>
+          <span class="com-chip soft" id="comAgendaPlannerCount">0 rutas</span>
+        </div>
+        <div class="mt-4 text-sm font-semibold text-stone-700" id="comAgendaPlannerDayTitle">—</div>
+        <div class="mt-4 space-y-3" id="comAgendaFutureList"></div>
+      </section>
+    </aside>
+  </section>
+</section>

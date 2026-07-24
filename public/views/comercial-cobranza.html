@@ -1,0 +1,75 @@
+<section class="com-page max-w-[1760px] mx-auto p-5 md:p-6 space-y-4">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL · Cobranza</span>
+        <h1 class="com-title">Cobranza</h1>
+      </div>
+      <p class="com-topbar-copy">Seguimiento de deuda con menos peso visual y mejor foco en el caso seleccionado.</p>
+    </div>
+    <div class="com-actions">
+      <button type="button" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Registrar seguimiento</button>
+      <button type="button" data-goto="comercial-clientes" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Ver clientes</button>
+    </div>
+  </header>
+
+  <section class="com-stats-strip">
+    <article class="com-stat"><div class="com-stat-k">Casos</div><div class="com-stat-v" id="comCobranzaCasos">0</div><div class="com-stat-s">Seguimientos activos</div></article>
+    <article class="com-stat"><div class="com-stat-k">Vencidas</div><div class="com-stat-v" id="comCobranzaVencidas">0</div><div class="com-stat-s">Queman la relacion</div></article>
+    <article class="com-stat"><div class="com-stat-k">Monto visible</div><div class="com-stat-v" id="comCobranzaTotal">—</div><div class="com-stat-s">Arrastre financiero</div></article>
+    <article class="com-stat"><div class="com-stat-k">Compromisos hoy</div><div class="com-stat-v" id="comCobranzaHoy">0</div><div class="com-stat-s">No se patean</div></article>
+    <article class="com-stat"><div class="com-stat-k">Foco</div><div class="com-stat-v text-lg" id="comCobranzaFoco">—</div><div class="com-stat-s">Prioridad actual</div></article>
+  </section>
+
+  <div class="grid gap-6 xl:grid-cols-[1.2fr,0.8fr] com-shell-grid">
+    <div class="space-y-4">
+      <div class="com-soft-card overflow-hidden">
+        <div class="px-6 py-5 border-b border-stone-200">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-stone-900">Bandeja compacta</h2>
+              <p class="mt-1 text-sm text-stone-500">Semaforo, monto, vencimiento, responsable y proxima gestion.</p>
+            </div>
+            <div class="text-sm text-stone-500"><span id="comCobranzaRows">0</span> casos</div>
+          </div>
+        </div>
+        <div class="p-6 space-y-3" id="comCobranzaList"></div>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="com-panel"><div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Por vencer hoy</div><div class="mt-3 space-y-2 text-sm text-stone-700" id="comCobranzaResumen"></div></div>
+        <div class="com-panel"><div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Riesgo comercial</div><div class="mt-3 space-y-2 text-sm text-stone-700" id="comCobranzaRiesgo"></div></div>
+      </div>
+    </div>
+
+    <div class="com-soft-card p-6 com-side-rail">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Caso seleccionado</div>
+          <h2 class="mt-2 text-2xl font-bold text-stone-900" id="comCobranzaCliente">—</h2>
+        </div>
+        <span class="com-chip warn" id="comCobranzaEstado">—</span>
+      </div>
+      <div class="grid gap-3 mt-6 sm:grid-cols-2">
+        <div><div class="com-label">Monto</div><div class="com-value" id="comCobranzaMonto">—</div></div>
+        <div><div class="com-label">Vencimiento</div><div class="com-value" id="comCobranzaVencimiento">—</div></div>
+        <div><div class="com-label">Desfase</div><div class="com-value" id="comCobranzaDias">—</div></div>
+        <div><div class="com-label">Ejecutivo</div><div class="com-value" id="comCobranzaEjecutivo">—</div></div>
+        <div><div class="com-label">Compromiso</div><div class="com-value" id="comCobranzaCompromiso">—</div></div>
+        <div><div class="com-label">Proxima gestion</div><div class="com-value" id="comCobranzaGestion">—</div></div>
+      </div>
+      <div class="mt-6"><div class="com-label">Lectura de seguimiento</div><div class="mt-2 text-sm text-stone-700" id="comCobranzaObservacion">—</div></div>
+      <div class="mt-6"><div class="com-label">Historial corto</div><div class="mt-3 space-y-3" id="comCobranzaTimeline"></div></div>
+      <div class="mt-6">
+        <div class="com-label">Nueva gestion</div>
+        <div class="mt-3 grid gap-3">
+          <textarea id="comCobranzaNuevaGestion" rows="3" class="com-textarea" placeholder="Registra llamada, compromiso o hallazgo puntual"></textarea>
+          <button id="comCobranzaGuardarGestion" type="button" class="com-action-btn">Guardar seguimiento</button>
+        </div>
+      </div>
+      <div class="grid gap-3 mt-6 sm:grid-cols-2">
+        <button data-goto="comercial-clientes" type="button" class="com-action-btn">Abrir ficha cliente</button>
+        <button data-goto="comercial" type="button" class="com-action-btn">Volver a COMERCIAL</button>
+      </div>
+    </div>
+  </div>
+</section>

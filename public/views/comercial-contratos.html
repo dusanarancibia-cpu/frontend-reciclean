@@ -1,0 +1,112 @@
+<section class="com-page max-w-[1760px] mx-auto p-5 md:p-6 space-y-4">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL · Contratos</span>
+        <h1 class="com-title">Contratos vigentes</h1>
+      </div>
+      <p class="com-topbar-copy">Ciclo de vida del acuerdo con menos ruido y mejor lectura de vigencia, margen y cumplimiento.</p>
+    </div>
+    <div class="com-actions">
+      <button id="comContratosNuevoBtn" type="button" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Nuevo contrato</button>
+      <button type="button" data-goto="comercial-agenda" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Ver agenda</button>
+    </div>
+  </header>
+
+  <section class="com-stats-strip">
+    <article class="com-stat"><div class="com-stat-k">Contratos</div><div class="com-stat-v" id="comContratosTotal">0</div><div class="com-stat-s">Acuerdos visibles</div></article>
+    <article class="com-stat"><div class="com-stat-k">Vigentes</div><div class="com-stat-v" id="comContratosVigentes">0</div><div class="com-stat-s">Relaciones activas</div></article>
+    <article class="com-stat"><div class="com-stat-k">Rentables</div><div class="com-stat-v" id="comContratosRentables">0</div><div class="com-stat-s">Margen sano</div></article>
+    <article class="com-stat"><div class="com-stat-k">Con alerta</div><div class="com-stat-v" id="comContratosAlertas">0</div><div class="com-stat-s">Riesgo actual</div></article>
+    <article class="com-stat"><div class="com-stat-k">Proximo a renovar</div><div class="com-stat-v text-lg" id="comContratosRenovar">—</div><div class="com-stat-s">Siguiente contrato</div></article>
+  </section>
+
+  <div class="com-toolbar compact p-5">
+    <div class="grid gap-3 xl:grid-cols-[1.15fr,0.6fr,0.55fr,auto]">
+      <input id="comContratosSearch" type="search" class="com-input" placeholder="Buscar cliente, material, plaza o estado del contrato" />
+      <select id="comContratosEstadoFilter" class="com-select">
+        <option value="todos">Todos los estados</option>
+        <option value="Vigente">Vigente</option>
+        <option value="Por vencer">Por vencer</option>
+        <option value="Renegociando">Renegociando</option>
+      </select>
+      <select id="comContratosPlazaFilter" class="com-select">
+        <option value="todas">Todas las plazas</option>
+        <option value="Santiago">Santiago</option>
+        <option value="Puerto Montt">Puerto Montt</option>
+        <option value="Talca">Talca</option>
+      </select>
+      <button id="comContratosReset" type="button" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[1.4fr,0.82fr] com-shell-grid">
+    <div class="space-y-4">
+      <div class="com-soft-card overflow-hidden">
+        <div class="px-6 py-5 border-b border-stone-200">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-stone-900">Tabla densa de contratos</h2>
+              <p class="mt-1 text-sm text-stone-500">Cada fila baja vigencia, kilos, margen, cumplimiento y riesgo de renovacion.</p>
+            </div>
+            <div class="text-sm text-stone-500"><span id="comContratosRows">0</span> filas</div>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead class="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th class="com-th">Cliente</th>
+                <th class="com-th">Plaza</th>
+                <th class="com-th">Frecuencia</th>
+                <th class="com-th">Kilos</th>
+                <th class="com-th">Margen</th>
+                <th class="com-th">Cumpl.</th>
+                <th class="com-th">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="comContratosBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div class="com-panel"><div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Vencimientos</div><div class="mt-3 space-y-2 text-sm text-stone-700" id="comContratosVencimientos"></div></div>
+        <div class="com-panel"><div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Margen y riesgo</div><div class="mt-3 space-y-2 text-sm text-stone-700" id="comContratosRiesgo"></div></div>
+        <div class="com-panel"><div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Proximas renovaciones</div><div class="mt-3 space-y-2 text-sm text-stone-700" id="comContratosRenovaciones"></div></div>
+      </div>
+    </div>
+
+    <div class="com-soft-card p-6 com-side-rail">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Contrato seleccionado</div>
+          <h2 class="mt-2 text-2xl font-bold text-stone-900" id="comContratoCliente">—</h2>
+        </div>
+        <span class="com-chip warn" id="comContratoEstado">—</span>
+      </div>
+      <div class="grid gap-3 mt-6 sm:grid-cols-2">
+        <div><div class="com-label">Sucursal</div><div class="com-value" id="comContratoSucursal">—</div></div>
+        <div><div class="com-label">Tipo de acuerdo</div><div class="com-value" id="comContratoAcuerdo">—</div></div>
+        <div><div class="com-label">Frecuencia</div><div class="com-value" id="comContratoFrecuencia">—</div></div>
+        <div><div class="com-label">Material</div><div class="com-value" id="comContratoMaterial">—</div></div>
+        <div><div class="com-label">Precio pactado</div><div class="com-value" id="comContratoPrecio">—</div></div>
+        <div><div class="com-label">Cumplimiento</div><div class="com-value" id="comContratoCumplimiento">—</div></div>
+        <div><div class="com-label">Kilos ejecutados</div><div class="com-value" id="comContratoKilos">—</div></div>
+        <div><div class="com-label">Rentabilidad</div><div class="com-value" id="comContratoRentabilidad">—</div></div>
+        <div class="sm:col-span-2"><div class="com-label">Vigencia</div><div class="com-value" id="comContratoVigencia">—</div></div>
+        <div><div class="com-label">Proxima instancia</div><div class="com-value" id="comContratoProxima">—</div></div>
+        <div><div class="com-label">Ultima ejecucion</div><div class="com-value" id="comContratoUltima">—</div></div>
+      </div>
+      <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div class="com-label text-amber-700">Alerta actual</div>
+        <div class="mt-1 text-sm text-amber-900" id="comContratoAlerta">—</div>
+      </div>
+      <div class="grid gap-3 mt-6 sm:grid-cols-2">
+        <button id="comContratoEditarBtn" type="button" class="com-action-btn">Editar contrato</button>
+        <button id="comContratoRenovarBtn" type="button" class="com-action-btn">Renovar</button>
+        <button id="comContratoInstanciasBtn" type="button" class="com-action-btn">Ver / generar instancias</button>
+        <button id="comContratoFinalizarBtn" type="button" class="com-action-btn muted">Finalizar contrato</button>
+      </div>
+    </div>
+  </div>
+</section>

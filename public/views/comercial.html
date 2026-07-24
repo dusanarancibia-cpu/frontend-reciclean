@@ -1,0 +1,94 @@
+<section class="com-page max-w-7xl mx-auto p-5 md:p-6 space-y-4">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL</span>
+        <h1 class="com-title">Mesa operativa</h1>
+      </div>
+      <p class="com-topbar-copy">Entrada rápida a cartera, pipeline, agenda, contratos y soportes.</p>
+    </div>
+    <div class="com-actions">
+      <div class="com-soft-card px-4 py-3 min-w-[220px]">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">Actualizado</div>
+        <div class="mt-2 text-sm text-emerald-900"><span id="comercialFecha">hoy</span></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid gap-4 md:grid-cols-3">
+    <div class="com-kpi">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Modulos listos hoy</div>
+      <div class="mt-2 text-3xl font-bold text-stone-900" id="comercialReadyCount">0</div>
+      <div class="mt-1 text-sm text-stone-600">Mesa COMERCIAL, nucleo completo y soportes ya navegables en local.</div>
+    </div>
+    <div class="com-kpi">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Frentes en armado</div>
+      <div class="mt-2 text-3xl font-bold text-stone-900" id="comercialBuildCount">0</div>
+      <div class="mt-1 text-sm text-stone-600">El siguiente corte ya es de validacion local, afinado y entrega al experto.</div>
+    </div>
+    <div class="com-kpi">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Regla dura</div>
+      <div class="mt-2 text-lg font-semibold text-stone-900">Cliente como hilo canonico</div>
+      <div class="mt-1 text-sm text-stone-600">Todo nace desde la cartera y baja al resto del funnel sin volver al legacy.</div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-bold text-stone-900">Nucleo</h2>
+        <p class="text-sm text-stone-500">Las piezas que deben sentirse como oficina real, no como mock.</p>
+      </div>
+      <span class="com-chip ok">Prioridad alta</span>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <button class="com-card text-left" data-goto="comercial-clientes" type="button">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Clientes / Cartera</div>
+        <p class="mt-2 text-sm text-stone-600">Puerta de entrada del funnel, ficha resumida, alertas y saneamiento interno.</p>
+        <div class="mt-4"><span class="com-chip ok">Primer modulo serio</span></div>
+      </button>
+      <button class="com-card text-left" data-goto="comercial-oportunidades" type="button">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Oportunidades</div>
+        <p class="mt-2 text-sm text-stone-600">Embudo comercial con etapas visibles, lectura por caso y salida ordenada hacia Agenda o Contratos.</p>
+        <div class="mt-4"><span class="com-chip ok">Segundo modulo serio</span></div>
+      </button>
+      <button class="com-card text-left" data-goto="comercial-agenda" type="button">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Agenda de servicios</div>
+        <p class="mt-2 text-sm text-stone-600">Ruta diaria por plaza con fecha, chofer, vehiculo, direccion y estado operativo visible.</p>
+        <div class="mt-4"><span class="com-chip ok">Modulo navegable</span></div>
+      </button>
+      <button class="com-card text-left" data-goto="comercial-contratos" type="button">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Contratos vigentes</div>
+        <p class="mt-2 text-sm text-stone-600">Relacion activa con vigencia, frecuencia, kilos, rendimiento y alertas de cumplimiento.</p>
+        <div class="mt-4"><span class="com-chip ok">Modulo navegable</span></div>
+      </button>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-bold text-stone-900">Soportes</h2>
+        <p class="text-sm text-stone-500">Apoyan el funnel sin robarle el centro al nucleo.</p>
+      </div>
+      <span class="com-chip soft">Apoyo</span>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <button class="com-card text-left" data-goto="comercial-cotizador" type="button">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Cotizador</div>
+        <p class="mt-2 text-sm text-stone-600">Soporte fuerte para aterrizar propuestas, comparar escenarios y visualizar atractivo comercial.</p>
+        <div class="mt-4"><span class="com-chip ok">Soporte navegable</span></div>
+      </button>
+      <button class="com-card text-left" data-goto="comercial-cobranza" type="button">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Cobranza</div>
+        <p class="mt-2 text-sm text-stone-600">Seguimiento de clientes en deuda o con pagos pendientes, sin desplazar al nucleo comercial.</p>
+        <div class="mt-4"><span class="com-chip ok">Soporte navegable</span></div>
+      </button>
+      <div class="com-card">
+        <div class="mt-4 text-lg font-semibold text-stone-900">Saneamiento</div>
+        <p class="mt-2 text-sm text-stone-600">Soporte interno para duplicados y alertas de calidad. Vive dentro de Clientes, no como modulo protagonista.</p>
+        <div class="mt-4"><span class="com-chip soft">Embebido en Clientes</span></div>
+      </div>
+    </div>
+  </div>
+</section>

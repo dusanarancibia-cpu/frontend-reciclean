@@ -16,6 +16,16 @@ import { mountMateriales } from "../controllers/materialesController.js";
 import { mountHistorial } from "../controllers/historialController.js";
 import { mountUsuarios } from "../controllers/usuariosController.js";
 import { mountCatalogo } from "../controllers/catalogoController.js";
+// Dominio COMERCIAL (integrado del repo de Pablo). Módulo aislado: sus controladores solo
+// dependen de models/comercialStore.js (store local simulado), no de nuestros componentes.
+import { mountComercialShell } from "../controllers/comercialShellController.js";
+import { mountComercialClientes } from "../controllers/comercialClientesController.js";
+import { mountComercialClienteDetalle } from "../controllers/comercialClienteDetalleController.js";
+import { mountComercialOportunidades } from "../controllers/comercialOportunidadesController.js";
+import { mountComercialAgenda } from "../controllers/comercialAgendaController.js";
+import { mountComercialContratos } from "../controllers/comercialContratosController.js";
+import { mountComercialCotizador } from "../controllers/comercialCotizadorController.js";
+import { mountComercialCobranza } from "../controllers/comercialCobranzaController.js";
 
 const BASE = ""; // v2 raíz limpia: las vistas viven en /views/*.html
 const $sidebar = document.getElementById("sidebar");
@@ -52,6 +62,16 @@ const ROUTES = {
   materiales:    { view: "materiales",  mount: mountMateriales },
   catalogo:      { view: "catalogo",    mount: mountCatalogo },
   usuarios:      { view: "usuarios",    mount: mountUsuarios },
+  // COMERCIAL (dominio nuevo). La "Mesa" es un shell con tarjetas [data-goto] hacia cada
+  // submódulo; el router ya cablea data-goto, así que la navegación interna funciona sola.
+  comercial:                    { view: "comercial",                  mount: mountComercialShell },
+  "comercial-clientes":         { view: "comercial-clientes",         mount: mountComercialClientes },
+  "comercial-clientes-detalle": { view: "comercial-clientes-detalle", mount: mountComercialClienteDetalle },
+  "comercial-oportunidades":    { view: "comercial-oportunidades",    mount: mountComercialOportunidades },
+  "comercial-agenda":           { view: "comercial-agenda",           mount: mountComercialAgenda },
+  "comercial-contratos":        { view: "comercial-contratos",        mount: mountComercialContratos },
+  "comercial-cotizador":        { view: "comercial-cotizador",        mount: mountComercialCotizador },
+  "comercial-cobranza":         { view: "comercial-cobranza",         mount: mountComercialCobranza },
   // Fuera del menú por decisión de negocio, pero la ruta sigue viva (no se borró código).
   propuestas:    { view: "propuestas",  mount: mountPropuestas },
   revision:      { view: "revision",    mount: mountRevision },

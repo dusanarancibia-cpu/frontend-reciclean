@@ -19,6 +19,17 @@ export const MENU = [
     { ico: "📚", label: "Historial",     route: "historial",    ready: true },
     { ico: "🏷️", label: "Materiales y Precios", route: "materiales", ready: true },
   ]},
+  // Dominio COMERCIAL (integrado del repo de Pablo). Solo 3 módulos están pulidos
+  // (Clientes, Oportunidades, Agenda); los demás quedan como "pronto" hasta terminarlos.
+  { seccion: "COMERCIAL", ico: "🤝", items: [
+    { ico: "🧭", label: "Mesa Comercial",     route: "comercial",               ready: true },
+    { ico: "🏢", label: "Clientes / Cartera", route: "comercial-clientes",      ready: true },
+    { ico: "🎯", label: "Oportunidades",      route: "comercial-oportunidades", ready: true },
+    { ico: "🚚", label: "Agenda de servicios", route: "comercial-agenda",       ready: true },
+    { ico: "📜", label: "Contratos",          route: "comercial-contratos",     ready: false },
+    { ico: "💲", label: "Cotizador",          route: "comercial-cotizador",     ready: false },
+    { ico: "💸", label: "Cobranza",           route: "comercial-cobranza",      ready: false },
+  ]},
   // "Vitrina pública" se fusionó dentro de Publicados: publicar y ver lo publicado son
   // la misma decisión, y separarlas obligaba a gerencia a cruzar dos pantallas.
   { seccion: "Administración", ico: "⚙️", items: [
@@ -32,6 +43,9 @@ export const MENU = [
 // Mapa route → sección, para saber qué grupo abrir al activar una ruta
 const SECCION_DE = {};
 MENU.forEach((s) => s.items.forEach((it) => { SECCION_DE[it.route] = s.seccion; }));
+// El detalle de cliente no es un ítem del menú, pero pertenece a COMERCIAL: al abrirlo,
+// que la sección quede desplegada y no se cierre.
+SECCION_DE["comercial-clientes-detalle"] = "COMERCIAL";
 
 function itemHTML(m) {
   const soon = m.ready ? "" : `<span class="nav-soon">pronto</span>`;
@@ -39,8 +53,10 @@ function itemHTML(m) {
     <span class="nav-ico">${m.ico}</span><span class="nav-label">${m.label}</span>${soon}</div>`;
 }
 
+// Las secciones nacen PLEGADAS (sin `open`) para no saturar el menú. setActive() abre solo
+// la sección de la pantalla actual; el usuario expande el resto a demanda.
 function grupoHTML(s) {
-  return `<div class="nav-group open" data-group="${s.seccion}">
+  return `<div class="nav-group" data-group="${s.seccion}">
     <button class="nav-group-h" type="button" title="${s.seccion}">
       <span class="nav-ico">${s.ico}</span>
       <span class="nav-label">${s.seccion}</span>

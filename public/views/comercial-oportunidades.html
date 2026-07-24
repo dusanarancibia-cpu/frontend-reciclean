@@ -1,0 +1,203 @@
+<section class="com-page max-w-[1760px] mx-auto p-4 md:p-5 space-y-3">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL · Oportunidades</span>
+        <h1 class="com-title">Pipeline comercial</h1>
+      </div>
+      <p class="com-topbar-copy">Mover casos y decidir rápido.</p>
+    </div>
+    <div class="com-actions">
+      <button id="comercialOpNuevoBtn" type="button" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Crear oportunidad</button>
+      <button type="button" data-goto="comercial-clientes" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Volver a clientes</button>
+    </div>
+  </header>
+
+  <section class="com-toolbar compact">
+    <div class="com-toolbar-row com-toolbar-grid-4">
+      <input id="comercialOpSearch" type="search" class="com-input" placeholder="Buscar cliente, titulo, material, ejecutivo o siguiente accion" />
+      <select id="comercialOpOwner" class="com-select">
+        <option value="todos">Todos los ejecutivos</option>
+        <option value="Andrea">Andrea</option>
+        <option value="Roman">Roman</option>
+      </select>
+      <select id="comercialOpStageFilter" class="com-select">
+        <option value="todas">Todas las etapas</option>
+        <option value="Lead">Lead</option>
+        <option value="Calificado">Calificado</option>
+        <option value="Cotizado">Cotizado</option>
+        <option value="Negociando">Negociando</option>
+        <option value="Ganado">Ganado</option>
+        <option value="Perdido">Perdido</option>
+        <option value="En pausa">En pausa</option>
+      </select>
+      <button id="comercialOpReset" type="button" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Limpiar</button>
+    </div>
+    <div class="com-toolbar-row com-toolbar-grid-4 mt-3">
+      <select id="comercialOpDatePreset" class="com-select">
+        <option value="todas">Todas las fechas</option>
+        <option value="hoy">Vence hoy</option>
+        <option value="7d">Proximos 7 dias</option>
+        <option value="30d">Proximos 30 dias</option>
+        <option value="vencidas">Ya vencidas</option>
+        <option value="custom">Rango manual</option>
+      </select>
+      <input id="comercialOpDateFrom" type="date" class="com-input" />
+      <input id="comercialOpDateTo" type="date" class="com-input" />
+      <div class="flex items-center justify-end">
+        <span class="com-chip soft">Filtro por vencimiento</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="comercialOpWorkspace" class="com-workspace opps">
+    <div class="space-y-4">
+      <div class="com-board-wrap">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <div class="com-panel-title">Tablero</div>
+            <div class="com-slim-copy">Haz clic en un caso para desplegar su ficha lateral.</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="com-chip soft">Drag & drop</span>
+            <span class="com-chip soft" id="comercialOpMiniTotal">0 casos</span>
+            <span class="com-chip soft" id="comercialOpMiniUrgentes">0 urgentes</span>
+          </div>
+        </div>
+        <div class="com-board-scroll com-scroll-soft">
+          <div id="comercialOpBoard" class="flex gap-4 min-w-max"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside id="comercialOpRail" class="com-side-rail com-rail-hidden">
+      <div class="com-rail-stack">
+        <div id="comercialOpEmptyState" class="com-soft-card compact-pad">
+          <div class="com-panel-title">Caso</div>
+          <h2 class="mt-3 text-xl font-bold text-stone-900">Selecciona una oportunidad</h2>
+          <p class="mt-2 text-sm leading-6 text-stone-600">
+            El embudo queda como protagonista. La ficha lateral solo se abre cuando eliges un caso puntual.
+          </p>
+        </div>
+
+        <div id="comercialOpSelectedPanel" class="com-soft-card com-primary-rail compact-pad hidden">
+        <div class="com-op-rail-head">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <div class="com-panel-title">Caso seleccionado</div>
+              <h2 class="mt-2 text-2xl font-bold text-stone-900 leading-tight" id="comercialOportunidadTitulo">—</h2>
+              <button type="button" class="mt-1 text-sm font-medium text-emerald-800 hover:text-emerald-900" id="comercialOportunidadCliente">—</button>
+            </div>
+            <div class="text-right space-y-2 min-w-[90px]">
+              <span class="com-chip warn" id="comercialOportunidadEtapa">—</span>
+              <div class="com-panel-title">Probabilidad</div>
+              <div class="text-lg font-bold text-stone-900" id="comercialOportunidadProbabilidad">—</div>
+            </div>
+          </div>
+
+          <div class="com-action-grid mt-4">
+            <button id="comercialOpTakeBtn" type="button" class="com-action-btn strong">Tomar este caso</button>
+            <button id="comercialOpViewClientBtn" type="button" class="com-action-btn">Ver ficha del cliente</button>
+            <button id="comercialOpOpenDrawerBtn" type="button" class="com-action-btn">Abrir editor completo</button>
+            <button id="comercialOpPauseBtn" type="button" class="com-action-btn muted">Enviar a pausa</button>
+          </div>
+        </div>
+
+        <div class="com-detail-grid mt-4">
+          <div class="com-metric-box"><div class="com-label">Valor</div><div class="com-metric-sm" id="comercialOportunidadMonto">—</div></div>
+          <div class="com-metric-box"><div class="com-label">Vencimiento</div><div class="com-metric-sm" id="comercialOportunidadVencimiento">—</div></div>
+          <div class="com-metric-box"><div class="com-label">Material</div><div class="com-metric-sm" id="comercialOportunidadMaterial">—</div></div>
+          <div class="com-metric-box"><div class="com-label">Prioridad</div><div class="com-metric-sm" id="comercialOportunidadPrioridad">—</div></div>
+          <div class="com-metric-box"><div class="com-label">Sucursal / ruta</div><div class="com-metric-sm" id="comercialOportunidadSucursal">—</div></div>
+          <div class="com-metric-box"><div class="com-label">Ejecutivo</div><div class="com-metric-sm" id="comercialOportunidadEjecutivo">—</div></div>
+        </div>
+
+        <div class="mt-4 com-op-stage-box">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="com-panel-title">Mover a columna</div>
+              <div class="com-slim-copy">Cambio rapido de etapa sin salir de la ficha.</div>
+            </div>
+            <div class="flex items-center gap-2 min-w-[220px]">
+              <select id="comercialOportunidadMoveStage" class="com-select">
+                <option value="Lead">Lead</option>
+                <option value="Calificado">Calificado</option>
+                <option value="Cotizado">Cotizado</option>
+                <option value="Negociando">Negociando</option>
+                <option value="Ganado">Ganado</option>
+                <option value="Perdido">Perdido</option>
+                <option value="En pausa">En pausa</option>
+              </select>
+              <button id="comercialOpMoveBtn" type="button" class="com-action-btn strong">Mover</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div class="com-panel-title">Lectura del caso</div>
+          <div class="mt-2 text-sm leading-5 text-stone-700" id="comercialOportunidadResumen">—</div>
+        </div>
+        <div class="mt-4">
+          <div class="com-panel-title">Siguiente accion</div>
+          <div class="com-op-next mt-2" id="comercialOportunidadSiguiente">—</div>
+        </div>
+        <div class="mt-4">
+          <div class="com-panel-title">Marcas del caso</div>
+          <div class="mt-3 flex flex-wrap gap-2" id="comercialOportunidadFlags"></div>
+        </div>
+        <div class="mt-4">
+          <div class="com-panel-title">Checklist</div>
+          <div class="mt-3 space-y-2" id="comercialOportunidadChecklist"></div>
+        </div>
+
+        <div class="mt-4 com-op-block">
+          <div class="flex items-center justify-between gap-3">
+            <div class="com-panel-title">Comentarios operativos</div>
+            <span class="com-chip soft" id="comercialOportunidadCommentCount">0 comentario(s)</span>
+          </div>
+          <div class="mt-3 space-y-3" id="comercialOportunidadComentarios"></div>
+          <textarea id="comercialOportunidadNuevoComentario" rows="3" class="com-textarea mt-3" placeholder="Agregar comentario operativo"></textarea>
+          <button id="comercialOpAddCommentBtn" type="button" class="com-action-btn strong mt-3">Guardar comentario</button>
+        </div>
+
+        <div class="mt-4 com-op-block">
+          <div class="flex items-center justify-between gap-3">
+            <div class="com-panel-title">Adjuntos del caso</div>
+            <span class="com-chip soft" id="comercialOportunidadFileCount">0 adjunto(s)</span>
+          </div>
+          <div class="mt-3 space-y-2" id="comercialOportunidadArchivos"></div>
+          <input id="comercialOportunidadFiles" type="file" class="mt-3 block w-full text-sm text-stone-600" multiple />
+          <button id="comercialOpAddFilesBtn" type="button" class="com-action-btn strong mt-3">Cargar archivos</button>
+        </div>
+
+        <div class="mt-4 com-op-block">
+          <div class="com-panel-title">Historial de movimientos</div>
+          <div class="mt-3 space-y-2" id="comercialOportunidadSeguimiento"></div>
+        </div>
+
+        <div class="com-action-grid mt-4">
+          <button data-goto="comercial-agenda" type="button" class="com-action-btn strong">Handoff a Agenda</button>
+          <button data-goto="comercial-contratos" type="button" class="com-action-btn strong">Crear contrato activo</button>
+          <button id="comercialOpMarkWonBtn" type="button" class="com-action-btn">Marcar como ganado</button>
+          <button data-goto="comercial-cotizador" type="button" class="com-action-btn">Ir al cotizador</button>
+        </div>
+        </div>
+
+        <div id="comercialOpSideSummary" class="hidden space-y-3">
+        <div class="com-panel compact">
+          <div class="com-panel-title">Por vencer</div>
+          <div class="mt-3 space-y-2 text-sm text-stone-700" id="comercialOpUrgencyList"></div>
+        </div>
+        <div class="com-panel compact">
+          <div class="com-panel-title">Trabas del funnel</div>
+          <div class="mt-3 space-y-2 text-sm text-stone-700" id="comercialOpBlockers"></div>
+        </div>
+        <div class="com-panel compact">
+          <div class="com-panel-title">Salidas preparadas</div>
+          <div class="mt-3 space-y-2 text-sm text-stone-700" id="comercialOpSalidas"></div>
+        </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+</section>

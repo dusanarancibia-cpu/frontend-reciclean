@@ -1,0 +1,98 @@
+<section class="com-page max-w-[1760px] mx-auto p-5 md:p-6 space-y-4">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL · Cotizador</span>
+        <h1 class="com-title">Cotizador</h1>
+      </div>
+      <p class="com-topbar-copy">Menos ruido arriba, más foco en líneas, margen y decisión de salida al funnel.</p>
+    </div>
+    <div class="com-actions">
+      <button id="comCotizadorNuevoBtn" type="button" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Nueva cotizacion</button>
+      <button id="comCotizadorGuardarBtn" type="button" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Guardar</button>
+    </div>
+  </header>
+
+  <section class="com-stats-strip">
+    <article class="com-stat"><div class="com-stat-k">Cotizaciones</div><div class="com-stat-v" id="comCotizadorEscenarios">0</div><div class="com-stat-s">Vivas en este corte</div></article>
+    <article class="com-stat"><div class="com-stat-k">Margen estimado</div><div class="com-stat-v" id="comCotizadorMargenKpi">—</div><div class="com-stat-s">Escenario activo</div></article>
+    <article class="com-stat"><div class="com-stat-k">Valor mensual</div><div class="com-stat-v" id="comCotizadorValorKpi">—</div><div class="com-stat-s">Suma de lineas</div></article>
+    <article class="com-stat"><div class="com-stat-k">Destino sugerido</div><div class="com-stat-v text-lg" id="comCotizadorDestino">—</div><div class="com-stat-s">Oportunidad o contrato</div></article>
+  </section>
+
+  <div class="grid gap-6 xl:grid-cols-[0.8fr,1.2fr] com-shell-grid">
+    <div class="space-y-4 com-side-rail">
+      <div class="com-soft-card p-5">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Cotizaciones guardadas</div>
+        <div class="mt-4 space-y-3" id="comCotizadorLista"></div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="com-soft-card p-6">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <label class="com-field">
+            <span class="com-label">Titulo</span>
+            <input id="comCotTitulo" type="text" class="com-input" />
+          </label>
+          <label class="com-field">
+            <span class="com-label">Cliente</span>
+            <select id="comCotCliente" class="com-select"></select>
+          </label>
+          <label class="com-field">
+            <span class="com-label">Frecuencia</span>
+            <select id="comCotFrecuencia" class="com-select">
+              <option value="Semanal">Semanal</option>
+              <option value="Quincenal">Quincenal</option>
+              <option value="Mensual">Mensual</option>
+              <option value="A demanda">A demanda</option>
+            </select>
+          </label>
+          <label class="com-field lg:col-span-2">
+            <span class="com-label">Lectura comercial</span>
+            <textarea id="comCotLectura" rows="3" class="com-textarea"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="com-soft-card overflow-hidden">
+        <div class="px-6 py-5 border-b border-stone-200 flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-stone-900">Lineas de la cotizacion</h2>
+            <p class="mt-1 text-sm text-stone-500">Material, cantidad, precio y costo para calcular margen.</p>
+          </div>
+          <button id="comCotAgregarLinea" type="button" class="com-action-btn">Agregar linea</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead class="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th class="com-th">Descripcion</th>
+                <th class="com-th">Cantidad</th>
+                <th class="com-th">Unidad</th>
+                <th class="com-th">Precio</th>
+                <th class="com-th">Costo</th>
+                <th class="com-th">Subtotal</th>
+                <th class="com-th">Accion</th>
+              </tr>
+            </thead>
+            <tbody id="comCotLineas"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-4">
+        <div class="com-metric-box"><div class="com-label">Total mensual</div><div class="com-metric-sm" id="comCotTotal">—</div></div>
+        <div class="com-metric-box"><div class="com-label">Costo estimado</div><div class="com-metric-sm" id="comCotCosto">—</div></div>
+        <div class="com-metric-box"><div class="com-label">Margen</div><div class="com-metric-sm" id="comCotMargen">—</div></div>
+        <div class="com-metric-box"><div class="com-label">Atractivo</div><div class="com-metric-sm" id="comCotAtractivo">—</div></div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-3">
+        <button id="comCotPasarOportunidad" type="button" class="com-action-btn">Pasar a oportunidad</button>
+        <button id="comCotCrearContrato" type="button" class="com-action-btn">Crear contrato</button>
+        <button id="comCotReset" type="button" class="com-action-btn muted">Limpiar</button>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,144 @@
+<section class="com-page max-w-[1760px] mx-auto p-4 md:p-5 space-y-4">
+  <header class="com-topbar">
+    <div class="com-topbar-main">
+      <div class="com-topbar-title">
+        <span class="com-badge">COMERCIAL · Cliente</span>
+        <h1 class="com-title" id="comercialClienteDetalleNombre">Ficha de cliente</h1>
+      </div>
+      <p class="com-topbar-copy" id="comercialClienteDetalleSub">Detalle completo del cliente seleccionado.</p>
+    </div>
+    <div class="com-actions">
+      <button type="button" data-goto="comercial-clientes" class="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Volver a clientes</button>
+    </div>
+  </header>
+
+  <section class="com-client-detail-grid">
+    <div class="space-y-4">
+      <section class="com-soft-card p-6">
+        <div class="com-client-tabs">
+          <button type="button" class="com-client-tab active">Oportunidades</button>
+          <button type="button" class="com-client-tab">Timeline</button>
+          <button type="button" class="com-client-tab">Expedientes</button>
+          <button type="button" class="com-client-tab">Alertas</button>
+        </div>
+
+        <div class="flex items-start justify-between gap-4 mt-5">
+          <div>
+            <div class="com-panel-title">Cliente</div>
+            <h2 class="mt-2 text-2xl font-bold text-stone-900" id="comercialClienteNombre">—</h2>
+            <div class="mt-2 text-sm text-stone-500" id="comercialClienteRut">—</div>
+          </div>
+          <div class="text-right space-y-2">
+            <span class="com-chip soft" id="comercialClienteSegmento">—</span>
+            <div class="text-sm font-semibold text-stone-700" id="comercialClienteScore">—</div>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="com-panel-title">Oportunidades del cliente</div>
+              <p class="mt-1 text-sm text-stone-500">Lectura corta de casos, contratos y expedientes asociados.</p>
+            </div>
+            <button id="comercialClienteNuevaOppBtn" type="button" class="com-action-btn strong">Nueva oportunidad</button>
+          </div>
+          <div id="comercialClienteOportunidades" class="com-client-case-grid mt-4"></div>
+        </div>
+
+        <div class="grid gap-4 mt-5 lg:grid-cols-2">
+          <div class="com-panel compact">
+            <div class="com-label">Contratos y agenda</div>
+            <div class="mt-2 space-y-2" id="comercialClienteContratosAgenda"></div>
+          </div>
+          <div class="com-panel compact">
+            <div class="com-label">Expedientes y comprobantes</div>
+            <div class="mt-2 space-y-2" id="comercialClienteExpedientes"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="com-soft-card p-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900">Timeline</h3>
+            <p class="text-sm text-stone-500">Historial operativo para leer el cliente sin perder contexto.</p>
+          </div>
+          <span class="com-chip soft">Historial</span>
+        </div>
+        <div class="mt-4 space-y-3" id="comercialClienteTimeline"></div>
+      </section>
+    </div>
+
+    <aside class="space-y-4 com-side-rail">
+      <section class="com-soft-card p-6 com-primary-rail">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900">Ficha base</h3>
+            <p class="text-sm text-stone-500">Identidad, contacto y datos centrales del cliente.</p>
+          </div>
+          <button id="comercialClienteEditarBtn" type="button" class="com-action-btn">Editar</button>
+        </div>
+
+        <div class="mt-4 space-y-3" id="comercialClienteFichaMeta"></div>
+        <div class="mt-5">
+          <div class="com-label">Proxima accion sugerida</div>
+          <div class="com-op-next mt-2" id="comercialClienteSiguiente">—</div>
+        </div>
+      </section>
+
+      <section class="com-soft-card p-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900">Campos personalizados</h3>
+            <p class="text-sm text-stone-500">Variables comerciales y administrativas relevantes.</p>
+          </div>
+          <span class="com-chip soft">Campos</span>
+        </div>
+
+        <div class="mt-4 space-y-2" id="comercialClienteCampos"></div>
+      </section>
+
+      <section class="com-soft-card p-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900">Comentario</h3>
+            <p class="text-sm text-stone-500">Lectura operativa corta del cliente.</p>
+          </div>
+          <span class="com-chip soft">Nota</span>
+        </div>
+        <div class="mt-4 text-sm leading-6 text-stone-700" id="comercialClienteComentario"></div>
+      </section>
+
+      <section class="com-soft-card p-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-stone-900">Saneamiento y alertas</h3>
+            <p class="text-sm text-stone-500">Duplicados, huecos de ficha y pendientes del frente comercial.</p>
+          </div>
+          <span class="com-chip soft">Interno</span>
+        </div>
+        <div class="mt-4 space-y-3" id="comercialClienteAlertas"></div>
+        <div class="mt-5">
+          <div class="com-label">Categoria comercial</div>
+          <div class="mt-3 flex flex-wrap gap-3 items-center">
+            <select id="comercialClienteCategoria" class="com-select max-w-[220px]">
+              <option value="A">Categoria A</option>
+              <option value="B">Categoria B</option>
+              <option value="C">Categoria C</option>
+            </select>
+            <button id="comercialClienteAplicarCategoria" type="button" class="com-action-btn">Aplicar categoria</button>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Acciones rapidas</div>
+          <div class="com-action-grid mt-3">
+            <button id="comercialClienteAgendaBtn" type="button" class="com-action-btn">Agendar servicio</button>
+            <button id="comercialClienteContratoBtn" type="button" class="com-action-btn">Ver / crear contrato</button>
+            <button id="comercialClienteCobranzaBtn" type="button" class="com-action-btn">Revisar cobranza</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </section>
+</section>
