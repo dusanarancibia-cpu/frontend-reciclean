@@ -11,23 +11,54 @@
     </p>
   </header>
 
+  <!-- Estilo "hoja de cálculo": celdas con borde, inputs compactos sin borde propio. -->
+  <style>
+    .cm-sheet { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+    .cm-sheet table { border-collapse: collapse; width: 100%; }
+    .cm-sheet thead th {
+      background: #f1f5f9; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+      color: #64748b; padding: 8px 10px; border-bottom: 1px solid #cbd5e1;
+      border-right: 1px solid #e2e8f0; text-align: left; white-space: nowrap;
+    }
+    .cm-sheet th:last-child { border-right: 0; }
+    .cm-sheet td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 0; }
+    .cm-sheet td:last-child { border-right: 0; }
+    .cm-sheet tr:last-child td { border-bottom: 0; }
+    .cm-cell { width: 100%; border: 0; background: transparent; padding: 7px 10px; font-size: 13px; outline: none; }
+    .cm-cell:focus { background: #ecfdf5; box-shadow: inset 0 0 0 2px #34d399; }
+    .cm-cell[readonly] { background: #f1f5f9; color: #57534e; cursor: not-allowed; }
+  </style>
+
   <div id="cmOrigen" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-sky-50 text-sky-800 border border-sky-200"></div>
+
+  <!-- Selector GLOBAL de empresa/cliente: fija y bloquea la empresa en todas las filas de la
+       hoja de una vez (una hoja = una empresa origen). "Otra…" permite escribir una nueva. -->
+  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-3 flex flex-wrap items-center gap-2">
+    <label for="cmEmpresaGlobal" class="text-sm font-semibold text-stone-700">Empresa / Cliente Origen</label>
+    <select id="cmEmpresaGlobal" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white min-w-[220px]">
+      <option value="">— sin fijar (empresa por fila) —</option>
+      <option value="__nueva__">➕ Otra empresa…</option>
+    </select>
+    <input id="cmEmpresaNueva" type="text" placeholder="Nombre de la empresa nueva"
+      class="border border-stone-300 rounded px-2 py-1.5 text-sm hidden">
+    <span class="text-xs text-stone-500">Al fijarla se aplica y <b>bloquea</b> la empresa en todas las filas.</span>
+  </div>
 
   <!-- Catálogo para el autocompletado de materiales; lo llena el controlador. -->
   <datalist id="cmMatList"></datalist>
 
-  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
+  <div class="cm-sheet overflow-x-auto">
+    <table>
+      <thead class="select-none">
         <tr>
-          <th class="text-left px-3 py-2.5">Material</th>
-          <th class="text-left px-3 py-2.5" title="Cliente o fundición que nos da este precio">Empresa / Cliente</th>
-          <th class="text-right px-3 py-2.5" title="Lo que nos paga la fundición por este material">Precio venta (fundición)</th>
-          <th class="text-left px-3 py-2.5">Vigencia</th>
-          <th class="px-3 py-2.5"></th>
+          <th>Material</th>
+          <th title="Cliente o fundición que nos da este precio">Empresa / Cliente</th>
+          <th title="Lo que nos paga la fundición por este material">Precio venta (fundición)</th>
+          <th>Vigencia</th>
+          <th></th>
         </tr>
       </thead>
-      <tbody id="cmBody" class="divide-y divide-stone-100">
+      <tbody id="cmBody">
         <tr><td colspan="5" class="px-4 py-8 text-center text-stone-400">Cargando materiales…</td></tr>
       </tbody>
     </table>

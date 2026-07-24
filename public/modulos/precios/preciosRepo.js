@@ -119,8 +119,11 @@ export async function listarRecibidos({ limite = 3000 } = {}) {
   const { data, error } = await getClient()
     .from("recibidos_panel")
     .select("id, material_id, material, categoria, categoria_nombre, categoria_orden, " +
-            "empresa_cliente, precio_recibido, fecha, sucursal_id, sucursal, creado_por, vigente, mi_rol")
+            "empresa_cliente, precio_recibido, fecha, creado_por, vigente, mi_rol, creado")
+    // Orden estricto: fecha (vigencia) del más reciente al más antiguo y, dentro del mismo
+    // día, por hora de ingreso (created_at) también descendente.
     .order("fecha", { ascending: false })
+    .order("creado", { ascending: false })
     .limit(limite);
   if (error) throw new Error(error.message);
   return data || [];
