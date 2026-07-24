@@ -1,9 +1,9 @@
 <!-- VISTA · Historial de precios. Auditoría de variaciones: quién cambió qué precio, cuándo,
      de cuánto a cuánto y en qué sucursal. Es solo lectura y su fin es la trazabilidad.
      Los IDs los consume /controllers/historialController.js. -->
-<section class="max-w-6xl mx-auto p-4 md:p-6">
+<section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
   <header class="mb-4">
-    <h2 class="text-2xl font-bold text-stone-800 flex items-center gap-2"><span>📚</span><span>Historial de precios</span></h2>
+    <h2 class="text-2xl font-bold text-stone-800">Historial y Auditoría de Precios</h2>
     <p class="text-sm text-stone-500 mt-1">
       Cada cambio de precio queda registrado: alta, subida, bajada o retiro. Sirve para auditar
       y, más adelante, graficar la fluctuación de cada material.
@@ -30,7 +30,7 @@
       <option value="retiro">Retiros</option>
     </select>
     <button id="hisExpandir" class="bg-white border border-stone-300 text-stone-600 px-3 py-1.5 rounded text-sm font-medium">Expandir/plegar</button>
-    <button id="hisExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">⬇ Exportar CSV</button>
+    <button id="hisExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">Exportar CSV</button>
     <span id="hisResumen" class="text-xs text-stone-500"></span>
   </div>
 

@@ -68,13 +68,13 @@ function quitarFila(id) {
 // Aceptar por fila = aprobar + publicar (misma EF autoritativa que el lote).
 async function aceptarFila(id) {
   const sess = await getSession().catch(() => null);
-  if (!sess?.access_token) { $("revisionInfo").textContent = "⚠️ Sin sesión de Supabase. Inicia sesión e inténtalo de nuevo."; return; }
+  if (!sess?.access_token) { $("revisionInfo").textContent = "Sin sesión de Supabase. Inicia sesión e inténtalo de nuevo."; return; }
   $("revisionInfo").textContent = "Aprobando…";
   const row = _rowsRev.find((x) => String(x.id) === String(id));
   const compra = row?.metadata?.precio_compra_transitorio || null;
   const r = await aprobarUno(id, sess.access_token, compra).catch(() => ({ ok: false, json: {} }));
-  if (r.ok) { quitarFila(id); $("revisionInfo").textContent = "✅ Precio aprobado y publicado."; }
-  else { $("revisionInfo").textContent = "❌ No pude aprobar: " + (r.json?.error || r.status || "error"); }
+  if (r.ok) { quitarFila(id); $("revisionInfo").textContent = "Precio aprobado y publicado."; }
+  else { $("revisionInfo").textContent = "No pude aprobar: " + (r.json?.error || r.status || "error"); }
 }
 
 // Eliminar por fila = rechazar (con modal de confirmación + motivo opcional).
@@ -89,11 +89,11 @@ function eliminarFila(id) {
       { texto: "Rechazar", primario: true, onClick: async () => {
           const motivo = (document.getElementById("revMotivo")?.value || "").trim() || null;
           const sess = await getSession().catch(() => null);
-          if (!sess?.access_token) { $("revisionInfo").textContent = "⚠️ Sin sesión de Supabase."; return; }
+          if (!sess?.access_token) { $("revisionInfo").textContent = "Sin sesión de Supabase."; return; }
           $("revisionInfo").textContent = "Rechazando…";
           const r = await rechazarUno(id, sess.access_token, motivo).catch(() => ({ ok: false, json: {} }));
-          if (r.ok) { quitarFila(id); $("revisionInfo").textContent = "🗑️ Precio rechazado."; }
-          else { $("revisionInfo").textContent = "❌ No pude rechazar: " + (r.json?.error || r.status || "error"); }
+          if (r.ok) { quitarFila(id); $("revisionInfo").textContent = "🗑 Precio rechazado."; }
+          else { $("revisionInfo").textContent = "No pude rechazar: " + (r.json?.error || r.status || "error"); }
         } },
     ],
   });
@@ -104,7 +104,7 @@ async function onConfirmar() {
   if (!ids.length) return;
   const sess = await getSession().catch(() => null);
   if (!sess?.access_token) {
-    $("revisionInfo").textContent = "⚠️ Sin sesión de Supabase. Inicia sesión en el panel e inténtalo de nuevo.";
+    $("revisionInfo").textContent = "Sin sesión de Supabase. Inicia sesión en el panel e inténtalo de nuevo.";
     return;
   }
   $("btnConfirmarSel").disabled = true;
@@ -124,7 +124,7 @@ async function onConfirmar() {
     _rowsRev = _rowsRev.filter((r) => !aprobados.includes(String(r.id)));
     _apiRev.setRows(_rowsRev);
   }
-  $("revisionInfo").textContent = `✅ Aprobadas: ${ok}` + (fail ? ` · ❌ Fallidas: ${fail}` : "");
+  $("revisionInfo").textContent = `Aprobadas: ${ok}` + (fail ? ` · Fallidas: ${fail}` : "");
   refrescarSeleccion();
 }
 
@@ -237,6 +237,6 @@ export async function mountRevision() {
     $("btnConfirmarSel").addEventListener("click", onConfirmar);
     $("revisionInfo").textContent = `${_rowsRev.length} pendiente(s) · aprobar publica el precio oficial.`;
   } catch (e) {
-    body.innerHTML = fila(6, "❌ No pude cargar la revisión: " + esc(e.message));
+    body.innerHTML = fila(6, "No pude cargar la revisión: " + esc(e.message));
   }
 }

@@ -46,7 +46,7 @@ export async function mountRecibidos() {
         <td class="px-4 py-2.5 text-stone-500 whitespace-nowrap">${fechaExacta(r.created_at)}</td>
         <td class="px-4 py-2.5 text-right font-semibold text-emerald-700">${clp(r.precio_clp_kg)}</td>
         <td class="px-4 py-2.5 text-right">
-          <a href="${calcHref}" class="bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium" style="text-decoration:none">🧮 Calcular</a>
+          <a href="${calcHref}" class="bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium" style="text-decoration:none">Calcular</a>
         </td>
       </tr>`;
     };
@@ -66,6 +66,6 @@ export async function mountRecibidos() {
       infoText: (total, page, pages) => `${total} registro(s) · página ${page} de ${pages} · más recientes primero (máx 200).`,
     });
   } catch (e) {
-    body.innerHTML = fila(6, "❌ No pude cargar los recibidos: " + esc(e.message));
+    body.innerHTML = fila(6, "No pude cargar los recibidos: " + esc(e.message));
   }
 }

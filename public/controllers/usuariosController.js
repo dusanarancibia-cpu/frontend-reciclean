@@ -95,7 +95,7 @@ export async function mountUsuarios() {
     cablearLote();
     cablearBotonesGerencia();
   } catch (e) {
-    body.innerHTML = fila(5, "❌ No pude cargar los usuarios: " + esc(e.message));
+    body.innerHTML = fila(5, "No pude cargar los usuarios: " + esc(e.message));
   }
 }
 
@@ -160,8 +160,8 @@ function abrirEditor(r) {
       <td style="padding:6px 4px;text-align:right">
         <select class="usrPerm" data-ruta="${esc(m.ruta)}" style="padding:5px 8px;border:1px solid #d6d3d1;border-radius:6px;font-size:12px;background:#fff">
           <option value=""   ${valor === "" ? "selected" : ""}>Según rol (${heredado})</option>
-          <option value="on" ${valor === "on" ? "selected" : ""}>✔ Permitir</option>
-          <option value="off"${valor === "off" ? "selected" : ""}>✕ Bloquear</option>
+          <option value="on" ${valor === "on" ? "selected" : ""}>Permitir</option>
+          <option value="off"${valor === "off" ? "selected" : ""}>Bloquear</option>
         </select>
       </td>
     </tr>`;
@@ -467,6 +467,6 @@ function pintarRol() {
   const aviso = $("usrAviso");
   if (!aviso) return;
   if (_rol === "gerencia") { aviso.classList.add("hidden"); return; }
-  aviso.innerHTML = `🔒 Tu perfil es <b>${esc(_rol)}</b>: solo gerencia administra usuarios.`;
+  aviso.innerHTML = `Tu perfil es <b>${esc(_rol)}</b>: solo gerencia administra usuarios.`;
   aviso.classList.remove("hidden");
 }

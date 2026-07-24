@@ -77,7 +77,7 @@ export async function mountCalculadora() {
     cablearAcciones();
   } catch (e) {
     const l = $("calcLista");
-    if (l) l.innerHTML = `<p class="text-sm text-rose-600 py-6 text-center">❌ ${esc(e.message)}</p>`;
+    if (l) l.innerHTML = `<p class="text-sm text-rose-600 py-6 text-center">${esc(e.message)}</p>`;
   }
 }
 
@@ -252,7 +252,7 @@ function validar(c) {
   else if (c.pmax > recibido) msg = `El P.Máx ${clp(c.pmax)} supera lo que nos pagan (${clp(recibido)}). Baja el spread o el margen.`;
   else if (_rol !== "gerencia") msg = "Solo gerencia puede publicar precios.";
 
-  if (msg) { $a.textContent = "⚠️ " + msg; $a.classList.remove("hidden"); $btn.disabled = true; }
+  if (msg) { $a.textContent = "" + msg; $a.classList.remove("hidden"); $btn.disabled = true; }
   else { $a.classList.add("hidden"); $btn.disabled = false; }
 }
 
@@ -306,7 +306,7 @@ async function onPublicar() {
                 motivo: "Réplica de Santiago",
               });
             }
-            $m.textContent = suc === SANTIAGO ? "✅ Publicado en Maipú y Cerrillos." : "✅ Publicado.";
+            $m.textContent = suc === SANTIAGO ? "Publicado en Maipú y Cerrillos." : "Publicado.";
             await refrescar();
           } catch (e) {
             $m.textContent = "";
@@ -350,7 +350,7 @@ function pintarRol() {
   const aviso = $("calcAviso");
   if (!aviso) return;
   if (_rol === "gerencia") { aviso.classList.add("hidden"); return; }
-  aviso.innerHTML = `🔒 Tu perfil es <b>${esc(_rol)}</b>: puedes simular precios, ` +
+  aviso.innerHTML = `Tu perfil es <b>${esc(_rol)}</b>: puedes simular precios, ` +
     `pero solo gerencia publica.`;
   aviso.classList.remove("hidden");
 }

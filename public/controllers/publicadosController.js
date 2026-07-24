@@ -59,7 +59,7 @@ export async function mountPublicados() {
     cablearReinicio();
     actualizarResumen();
   } catch (e) {
-    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">❌ No pude cargar los publicados: ${esc(e.message)}</div>`;
+    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">No pude cargar los publicados: ${esc(e.message)}</div>`;
   }
 }
 
@@ -192,7 +192,7 @@ function renderRow(r) {
       return `<td class="px-4 py-2.5 text-right text-stone-300">—</td>`;
     }
     const aviso = p.requiere_revision
-      ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de confiar en él">⚠️</span>` : "";
+      ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de confiar en él"></span>` : "";
     const meta = `<div class="text-[10px] text-stone-400 leading-tight">desde ${fechaCorta(p.vigencia)}${
       p.creado_por ? " · " + esc(p.creado_por) : ""}</div>`;
     const clase = editable ? " pubPrecio" : "";
@@ -304,7 +304,7 @@ function cablearEdicionPrecio(cont) {
       confirmar: (nuevo, anterior) => {
         const recibido = p?.recibido;
         if (recibido != null && nuevo > Number(recibido)) {
-          return `⛔ Pagarías <b>${clp(nuevo)}</b> por algo que la fundición nos paga a ${clp(recibido)}.`;
+          return `Pagarías <b>${clp(nuevo)}</b> por algo que la fundición nos paga a ${clp(recibido)}.`;
         }
         const base = Number(anterior) || 0;
         if (base > 0 && Math.abs(nuevo - base) / base >= 0.15) {
@@ -425,7 +425,7 @@ function cablearReinicio() {
         <p>Se retirarán <b>${cuantos}</b> precio(s) vigente(s)${
           sucNombre ? ` de <b>${esc(sucNombre)}</b>` : " de <b>todas las sucursales</b>"}.</p>
         <p style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;margin-top:10px;font-size:13px;color:#065f46">
-          🛡️ El catálogo de materiales no se toca, y el histórico y la auditoría se conservan.
+          El catálogo de materiales no se toca, y el histórico y la auditoría se conservan.
           Lo que se marcó como visible en cada web se mantiene: al cargar la lista nueva,
           los materiales reaparecen solos.
         </p>
@@ -447,7 +447,7 @@ function cablearReinicio() {
               const res = await reiniciarPrecios({ motivo, sucursalId: sucId });
               cerrarModal();
               await mountPublicados();
-              toast(`♻️ ${res.precios_retirados} precio(s) retirados. Carga la lista nueva desde Carga Manual.`);
+              toast(`${res.precios_retirados} precio(s) retirados. Carga la lista nueva desde Carga Manual.`);
             } catch (e) {
               err.textContent = e.message; err.style.display = "block";
             }
@@ -479,7 +479,7 @@ function pintarRol() {
   const aviso = $("publicadosAviso");
   if (!aviso) return;
   if (_rol === "gerencia") { aviso.classList.add("hidden"); return; }
-  aviso.innerHTML = `🔒 Tu perfil es <b>${esc(_rol)}</b>: puedes consultar los precios vigentes, ` +
+  aviso.innerHTML = `Tu perfil es <b>${esc(_rol)}</b>: puedes consultar los precios vigentes, ` +
     `pero solo gerencia publica o retira materiales de las webs.`;
   aviso.classList.remove("hidden");
 }

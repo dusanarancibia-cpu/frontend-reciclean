@@ -52,7 +52,7 @@ export async function mountCatalogo() {
 
     cablearControles();
   } catch (e) {
-    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">❌ No pude cargar el catálogo: ${esc(e.message)}</div>`;
+    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">No pude cargar el catálogo: ${esc(e.message)}</div>`;
   }
 }
 
@@ -277,7 +277,7 @@ function abrirGestionCategorias() {
     </tr>`;
 
   abrirModal({
-    titulo: "🗂 Categorías",
+    titulo: "Categorías",
     cuerpoHTML: `
       <p style="font-size:13px;color:#78716c;margin-bottom:10px">Renombra, reordena (número menor = arriba) o desactiva. Las inactivas no salen al elegir la categoría de un material.</p>
       <table style="width:100%;font-size:13px;border-collapse:collapse">
@@ -344,7 +344,7 @@ function pintarRol() {
   const aviso = $("catAviso");
   if (!aviso) return;
   if (_rol === "gerencia") { aviso.classList.add("hidden"); return; }
-  aviso.innerHTML = `🔒 Tu perfil es <b>${esc(_rol)}</b>: puedes consultar el catálogo, ` +
+  aviso.innerHTML = `Tu perfil es <b>${esc(_rol)}</b>: puedes consultar el catálogo, ` +
     `pero solo gerencia crea o modifica materiales y categorías.`;
   aviso.classList.remove("hidden");
 }

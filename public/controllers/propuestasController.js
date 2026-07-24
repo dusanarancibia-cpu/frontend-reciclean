@@ -52,12 +52,12 @@ async function onAceptar(id) {
     .update({ ruta: "manual_calc" }).eq("id", Number(id));
   if (error) {
     // textContent ya escapa: no usar esc() aquí (mostraría entidades como &amp;).
-    $("propuestasInfo").textContent = "❌ No pude aceptar: " + error.message +
+    $("propuestasInfo").textContent = "No pude aceptar: " + error.message +
       " (¿sesión iniciada?)";
     return;
   }
   quitarFila(id);
-  $("propuestasInfo").textContent = "✅ Propuesta aceptada → pasó a Revisión.";
+  $("propuestasInfo").textContent = "Propuesta aceptada → pasó a Revisión.";
 }
 
 // Pide el motivo con el modal del panel (antes: prompt() nativo) y, al confirmar,
@@ -65,7 +65,7 @@ async function onAceptar(id) {
 async function onRechazar(id) {
   const sess = await getSession().catch(() => null);
   if (!sess?.access_token) {
-    $("propuestasInfo").textContent = "⚠️ Sin sesión de Supabase. Inicia sesión e inténtalo de nuevo.";
+    $("propuestasInfo").textContent = "Sin sesión de Supabase. Inicia sesión e inténtalo de nuevo.";
     return;
   }
   abrirModal({
@@ -100,13 +100,13 @@ async function ejecutarRechazo(id, token, motivo) {
     const raw = await resp.text();
     let js = {}; try { js = raw ? JSON.parse(raw) : {}; } catch { js = { raw }; }
     if (!resp.ok || js.ok === false) {
-      $("propuestasInfo").textContent = "❌ No pude rechazar: " + (js.error || resp.status);
+      $("propuestasInfo").textContent = "No pude rechazar: " + (js.error || resp.status);
       return;
     }
     quitarFila(id);
-    $("propuestasInfo").textContent = "🗑️ Propuesta rechazada.";
+    $("propuestasInfo").textContent = "🗑 Propuesta rechazada.";
   } catch (e) {
-    $("propuestasInfo").textContent = "❌ Error de red al rechazar: " + e.message;
+    $("propuestasInfo").textContent = "Error de red al rechazar: " + e.message;
   }
 }
 
@@ -172,6 +172,6 @@ export async function mountPropuestas() {
     });
     _sel.onchange = () => _api.setRows(filtrar(parseFloat(_sel.value)));
   } catch (e) {
-    body.innerHTML = fila(6, "❌ No pude cargar las propuestas: " + esc(e.message));
+    body.innerHTML = fila(6, "No pude cargar las propuestas: " + esc(e.message));
   }
 }

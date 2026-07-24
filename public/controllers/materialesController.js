@@ -62,7 +62,7 @@ export async function mountMateriales() {
     cablearFiltros();
     actualizarResumen();
   } catch (e) {
-    body.innerHTML = fila(6, "❌ No pude cargar los precios: " + esc(e.message));
+    body.innerHTML = fila(6, "No pude cargar los precios: " + esc(e.message));
   }
 }
 
@@ -74,7 +74,7 @@ function renderRow(r) {
   const clasePub = _rol === "gerencia" ? " matPublicado" : "";
   // Los precios migrados del modelo antiguo tienen semántica dudosa: se marcan a la vista.
   const aviso = r.requiere_revision
-    ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de publicarlo">⚠️</span>` : "";
+    ? ` <span title="Migrado del sistema antiguo: verifica el valor antes de publicarlo"></span>` : "";
   return `<tr class="hover:bg-stone-50" data-mat="${esc(r.material_id)}" data-suc="${esc(r.sucursal_id)}">
     <td class="px-4 py-2.5 font-medium text-stone-800">${esc(r.material)}${aviso}</td>
     <td class="px-4 py-2.5 text-stone-600">${esc(r.sucursal)}</td>
@@ -156,7 +156,7 @@ function cablearCeldas(filasPagina) {
       confirmar: (nuevo, anterior) => {
         const recibido = datos?.precio_recibido_clp;
         if (recibido != null && nuevo > Number(recibido)) {
-          return `⛔ Pagarías <b>${clp(nuevo)}</b> por un material que la fundición nos paga a ` +
+          return `Pagarías <b>${clp(nuevo)}</b> por un material que la fundición nos paga a ` +
                  `${clp(recibido)}. Estarías comprando con pérdida.`;
         }
         const base = Number(anterior) || 0;
@@ -195,7 +195,7 @@ function pintarRol() {
   const aviso = $("matAvisoRol");
   if (!aviso) return;
   if (_rol === "gerencia") { aviso.classList.add("hidden"); return; }
-  aviso.innerHTML = `🔒 Tu perfil es <b>${esc(_rol)}</b>: puedes consultar los precios, pero no ` +
+  aviso.innerHTML = `Tu perfil es <b>${esc(_rol)}</b>: puedes consultar los precios, pero no ` +
     `modificarlos ni ver los costos. Si necesitas editar, pide a gerencia que cambie tu rol.`;
   aviso.classList.remove("hidden");
 }

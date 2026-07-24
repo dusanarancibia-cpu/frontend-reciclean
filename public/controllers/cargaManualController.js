@@ -184,7 +184,7 @@ function volcarFilas(objetos, etiquetaOrigen) {
   if (!$("cmBody").querySelector(".cmRow")) agregarFila();
   $("cmInfo").textContent = `${etiquetaOrigen} ${objetos.length} fila(s).` +
     (sinReconocer
-      ? ` ⚠️ ${sinReconocer} sin reconocer el material (fondo ámbar): complétalas a mano.`
+      ? ` ${sinReconocer} sin reconocer el material (fondo ámbar): complétalas a mano.`
       : " Revisa y presiona Enviar a Pendientes.");
   return sinReconocer;
 }
@@ -198,9 +198,9 @@ async function onImportar(file) {
       ? await leerXlsx(file) : parseCSV(await file.text());
     const objetos = matrizAObjetos(matriz);
     if (!objetos.length) { $("cmInfo").textContent = "El archivo no tiene filas de datos."; return; }
-    volcarFilas(objetos, "📄 Importadas");
+    volcarFilas(objetos, "Importadas");
   } catch (e) {
-    $("cmInfo").textContent = "❌ No pude leer el archivo: " + e.message +
+    $("cmInfo").textContent = "No pude leer el archivo: " + e.message +
       " (si es Excel, prueba guardarlo como CSV).";
   }
 }
@@ -256,7 +256,7 @@ function recolectar() {
 
 async function onEnviar() {
   const { payloads, errores } = recolectar();
-  if (errores.length) { $("cmInfo").textContent = "⚠️ " + errores.join("  "); return; }
+  if (errores.length) { $("cmInfo").textContent = "" + errores.join("  "); return; }
   if (!payloads.length) { $("cmInfo").textContent = "No hay filas con datos para enviar."; return; }
 
   $("cmEnviar").disabled = true;
@@ -273,9 +273,9 @@ async function onEnviar() {
     $("cmBody").innerHTML = ""; agregarFila();
     $("cmBody").dataset.origen = "carga_manual";
     $("cmOrigen").classList.add("hidden");
-    $("cmInfo").textContent = `✅ ${payloads.length} precio(s) enviado(s) a Pendientes.`;
+    $("cmInfo").textContent = `${payloads.length} precio(s) enviado(s) a Pendientes.`;
   } catch (e) {
-    $("cmInfo").textContent = "❌ No pude cargar: " + e.message;
+    $("cmInfo").textContent = "No pude cargar: " + e.message;
   } finally {
     $("cmEnviar").disabled = false;
   }
@@ -311,7 +311,7 @@ export async function mountCargaManual() {
       const f = e.target.files && e.target.files[0];
       onImportar(f); e.target.value = ""; // permite reimportar el mismo archivo
     });
-    $("cmInfo").textContent = _email ? `Sesión: ${_email}` : "⚠️ Sin sesión — inicia sesión antes de enviar.";
+    $("cmInfo").textContent = _email ? `Sesión: ${_email}` : "Sin sesión — inicia sesión antes de enviar.";
 
     // ── Traspaso desde el OCR de Diego ──────────────────────────────────────
     // Diego NO escribe en la base: deja lo leído en el buzón y el usuario lo revisa acá.
@@ -323,17 +323,17 @@ export async function mountCargaManual() {
           precio: i.precio_clp_kg,
           vigencia: "",
         })),
-        "🔍 Diego leyó",
+        "Diego leyó",
       );
       body.dataset.origen = traspaso.origen || "ocr_diego";
       const aviso = $("cmOrigen");
-      aviso.innerHTML = `🔍 <b>${traspaso.items.length} precio(s) leídos por Diego desde una imagen.</b> ` +
+      aviso.innerHTML = `<b>${traspaso.items.length} precio(s) leídos por Diego desde una imagen.</b> ` +
         `Todavía <b>no se ha guardado nada</b>: revísalos${
           sinReconocer ? `, corrige los ${sinReconocer} en ámbar` : ""
         } y presiona “Enviar a Pendientes”.`;
       aviso.classList.remove("hidden");
     }
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-rose-600">❌ No pude cargar el formulario: ${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-rose-600">No pude cargar el formulario: ${esc(e.message)}</td></tr>`;
   }
 }

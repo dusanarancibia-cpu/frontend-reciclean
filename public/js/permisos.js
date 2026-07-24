@@ -41,7 +41,7 @@ export const esGerencia = () => _rol === "gerencia";
 export function htmlAccesoDenegado(ruta) {
   return `<section class="max-w-2xl mx-auto p-6">
     <div class="rounded-lg border border-rose-300 bg-rose-50 text-rose-800 px-5 py-4">
-      <div class="font-bold text-lg mb-1">🚫 Acceso denegado</div>
+      <div class="font-bold text-lg mb-1">Acceso denegado</div>
       <p class="text-sm">Tu perfil <b>${_rol}</b> no tiene acceso a <b>${ruta}</b>.
       Te llevamos al inicio. Si necesitas entrar, pide a gerencia que ajuste tus permisos.</p>
     </div>

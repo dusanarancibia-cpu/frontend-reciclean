@@ -63,7 +63,7 @@ export async function mountHistorial() {
     seriesParaGrafico(_rows);
     resumen(_rows.length);
   } catch (e) {
-    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">❌ No pude cargar el historial: ${esc(e.message)}</div>`;
+    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">No pude cargar el historial: ${esc(e.message)}</div>`;
   }
 }
 
@@ -168,7 +168,7 @@ function exportar() {
 
 function resumen(n, error = null) {
   const el = $("hisResumen");
-  if (el) el.textContent = error ? "⚠️ " + error : `${n} resultado(s)`;
+  if (el) el.textContent = error ? "" + error : `${n} resultado(s)`;
   const info = $("hisInfo");
   if (info && !error) info.textContent = `${aplicarFiltroLocal(_rows).length} cambio(s) en ${gruposVisibles().length} categoría(s).`;
 }
