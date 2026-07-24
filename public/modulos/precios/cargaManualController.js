@@ -9,7 +9,7 @@
 // Solo se piden Material, Precio Venta (lo que nos paga la fundición) y Vigencia:
 // la sucursal y el precio público los asigna gerencia después, en la Calculadora.
 import { getClient, getSession } from "../../shared/js/supabase.js";
-import { cargarFilas, pasarAPendiente, listarBorradores, empresasClientes } from "./flujoRepo.js";
+import { ingresarCargaManual, empresasClientes } from "./flujoRepo.js";
 import { escapeHTML } from "../../shared/js/util.js";
 import { tomarParaCargaManual } from "../../shared/js/traspaso.js";
 
@@ -293,17 +293,16 @@ async function onEnviar() {
   $("cmInfo").textContent = `Enviando ${payloads.length} precio(s)…`;
   try {
     const origen = $("cmBody").dataset.origen || "carga_manual";
-    await cargarFilas(payloads, origen);
-
-    // Las filas entran como 'crudo'; se mueven a 'pendiente' de inmediato porque el
-    // usuario ya las revisó en esta pantalla (que es justamente para eso).
-    const recien = await listarBorradores({ estados: ["crudo"], limite: payloads.length });
-    if (recien.length) await pasarAPendiente(recien.map((r) => r.id));
+    // DOBLE FLUJO: en un solo RPC atómico, cada precio queda registrado en el histórico
+    // inmutable de Recibidos Y entra a la cola de Pendientes para la Calculadora.
+    const res = await ingresarCargaManual(payloads, origen);
 
     $("cmBody").innerHTML = ""; agregarFila();
     $("cmBody").dataset.origen = "carga_manual";
     $("cmOrigen").classList.add("hidden");
-    $("cmInfo").textContent = `${payloads.length} precio(s) enviado(s) a Pendientes.`;
+    const nPen = res?.pendientes ?? payloads.length;
+    const nRec = res?.recibidos ?? payloads.length;
+    $("cmInfo").textContent = `${nPen} precio(s) en Pendientes y ${nRec} registrado(s) en Recibidos.`;
   } catch (e) {
     $("cmInfo").textContent = "No pude cargar: " + e.message;
   } finally {
