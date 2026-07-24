@@ -54,6 +54,21 @@ body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif
 }
 .nav-item.active .nav-soon { color: #d1fae5; }
 
+/* Badge de notificación (círculo rojo). Ej.: pendientes junto a "Calculadora". */
+.nav-item .nav-badge {
+  margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #ef4444; color: #fff; font-size: 10px; font-weight: 700;
+  border-radius: 999px; line-height: 1; box-shadow: 0 0 0 2px #1c1917;
+}
+.nav-item .nav-badge[hidden] { display: none; }
+/* Colapsado: el número molesta; se reduce a un punto sobre el ícono. */
+.app-sidebar.collapsed .nav-item { position: relative; }
+.app-sidebar.collapsed .nav-item .nav-badge {
+  position: absolute; top: 4px; right: 8px; margin: 0;
+  min-width: 9px; height: 9px; padding: 0; font-size: 0;
+}
+
 .nav-section {
   padding: 14px 16px 6px; font-size: 10px; text-transform: uppercase;
   letter-spacing: .08em; color: #78716c;

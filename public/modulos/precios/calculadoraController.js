@@ -59,6 +59,8 @@ const SANTIAGO_FANOUT = ["maipu", "cerrillos"];
 
 let _pendientes = [];
 let _sucursales = [];
+let _sucOpciones = []; // opciones de sucursal para los tickets (incluye "santiago")
+let _sucSel = new Set(); // sucursales marcadas (selección múltiple)
 let _cfg = null;      // umbrales del semáforo + valores iniciales
 let _sel = null;      // el pendiente en el que se está trabajando
 let _baseVenta = 0;   // Precio Venta base del material seleccionado (para el tope +15%)
@@ -84,11 +86,12 @@ export async function mountCalculadora() {
     _sel = null;
 
     pintarRol();
-    // "Santiago" va primero como atajo (replica a Maipú + Cerrillos); luego las reales.
+    // Opciones de sucursal para los tickets. "Santiago" va primero como atajo (replica a
+    // Maipú + Cerrillos); luego las reales. Se marca con selección múltiple.
     const tieneSantiago = SANTIAGO_FANOUT.every((id) => _sucursales.some((s) => s.sucursal_id === id));
-    $("calcSucursal").innerHTML = `<option value="">— elige sucursal —</option>` +
-      (tieneSantiago ? `<option value="${SANTIAGO}">Santiago (Maipú + Cerrillos)</option>` : "") +
-      _sucursales.map((s) => `<option value="${esc(s.sucursal_id)}">${esc(s.nombre)}</option>`).join("");
+    _sucOpciones = (tieneSantiago ? [{ sucursal_id: SANTIAGO, nombre: "Santiago (Maipú + Cerrillos)" }] : [])
+      .concat(_sucursales.map((s) => ({ sucursal_id: s.sucursal_id, nombre: s.nombre })));
+    pintarSucursales();
 
     pintarLista(_pendientes);
     cablearBuscador();
@@ -127,6 +130,38 @@ function cablearBuscador() {
     pintarLista(filtroGlobal(_pendientes, b.value, ["material", "material_texto", "empresa_cliente", "origen", "creado_por"])));
 }
 
+// ── Sucursales (selección múltiple con tickets) ───────────────────────────────
+// Devuelve las sucursales marcadas en el orden en que aparecen en los tickets.
+function sucursalesElegidas() {
+  return _sucOpciones.map((o) => o.sucursal_id).filter((id) => _sucSel.has(id));
+}
+
+function pintarSucursales() {
+  const cont = $("calcSucursales");
+  if (!cont) return;
+  cont.innerHTML = _sucOpciones.map((o) => {
+    const on = _sucSel.has(o.sucursal_id);
+    const cls = on
+      ? "bg-emerald-600 border-emerald-600 text-white"
+      : "bg-white border-stone-300 text-stone-600 hover:bg-stone-50";
+    return `<button type="button" class="calcSucTicket text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${cls}"
+      data-suc="${esc(o.sucursal_id)}" aria-pressed="${on}">${on ? "✓ " : ""}${esc(o.nombre)}</button>`;
+  }).join("");
+  cont.querySelectorAll(".calcSucTicket").forEach((b) =>
+    b.addEventListener("click", () => toggleSucursal(b.dataset.suc)));
+
+  const n = _sucSel.size;
+  const hint = $("calcSucursalHint");
+  if (hint) hint.textContent = n === 0 ? "Ninguna seleccionada."
+    : `${n} sucursal(es): el precio se publicará en todas.`;
+}
+
+function toggleSucursal(id) {
+  if (_sucSel.has(id)) _sucSel.delete(id); else _sucSel.add(id);
+  pintarSucursales();
+  cargarVigente(); // el delta vs vigente se recalcula contra la primera sucursal marcada
+}
+
 // ── Selección de un caso ──────────────────────────────────────────────────────
 function seleccionar(id) {
   _sel = _pendientes.find((r) => r.id === id) || null;
@@ -138,7 +173,10 @@ function seleccionar(id) {
   $("calcMaterial").textContent = _sel.material || _sel.material_texto || "—";
   $("calcMeta").textContent =
     `Origen: ${_sel.origen} · cargado por ${_sel.creado_por || "—"}`;
-  $("calcSucursal").value = _sel.sucursal_id || "";
+  // Selección de sucursales para este pendiente: parte desde cero (o con la que trajera
+  // el borrador, si venía asignada). El usuario marca las que quiera antes de enviar.
+  _sucSel = new Set(_sel.sucursal_id ? [_sel.sucursal_id] : []);
+  pintarSucursales();
 
   // Precio Venta: parte en el valor base del material. Se puede editar, pero no más de un
   // +15% sobre ese base (regla de negocio). El tope del slider ya es base×1.15; si alguien
@@ -167,9 +205,12 @@ function fijar(idRange, idNum, valor) {
   if ($(idNum)) $(idNum).value = v;
 }
 
-// El delta contra lo vigente solo tiene sentido con sucursal elegida.
+// El delta contra lo vigente solo tiene sentido con sucursal elegida. Con selección
+// múltiple se compara contra la PRIMERA marcada (santiago → Maipú, su representante).
 async function cargarVigente() {
-  const suc = $("calcSucursal").value;
+  const elegidas = sucursalesElegidas();
+  let suc = elegidas[0];
+  if (suc === SANTIAGO) suc = SANTIAGO_FANOUT[0];
   if (!_sel?.material_id || !suc) { _vigente = null; return recalcular(); }
   _vigente = await precioVigente(_sel.material_id, suc);
   recalcular();
@@ -177,12 +218,14 @@ async function cargarVigente() {
 
 // ── Sliders ───────────────────────────────────────────────────────────────────
 // Cada slider tiene un input numérico gemelo: el slider explora, el número afina.
+// Las etiquetas muestran SOLO el valor: la unidad ($/kg, kg, %) ya está fija en el HTML,
+// junto al <strong>. Antes se duplicaba (ej. "500 kg kg", "$0/kg/kg").
 const PARES = [
-  ["calcP", "calcPNum", "calcLblP", (v) => clp(v) + "/kg"],
+  ["calcP", "calcPNum", "calcLblP", (v) => clp(v)],
   ["calcMg", "calcMgNum", "calcLblMg", (v) => v + "%"],
-  ["calcFl", "calcFlNum", "calcLblFl", (v) => clp(v) + "/kg"],
+  ["calcFl", "calcFlNum", "calcLblFl", (v) => clp(v)],
   ["calcB", "calcBNum", "calcLblB", (v) => v + "%"],
-  ["calcVol", "calcVolExacto", "calcLblVol", (v) => Number(v).toLocaleString("es-CL") + " kg"],
+  ["calcVol", "calcVolExacto", "calcLblVol", (v) => Number(v).toLocaleString("es-CL")],
   ["calcIva", "calcIvaNum", "calcLblIva", (v) => v + "%"],
 ];
 
@@ -198,7 +241,7 @@ function cablearSliders() {
       recalcular();
     });
   });
-  $("calcSucursal")?.addEventListener("change", cargarVigente);
+  // Las sucursales ahora son tickets (selección múltiple); cada toggle ya llama a cargarVigente().
 }
 
 function cablearRedondeo() {
@@ -271,7 +314,7 @@ function validar(c) {
   else if (num("calcMgNum") > MARGEN_MAX) {
     msg = `El margen ${num("calcMgNum")}% supera el máximo permitido de ${MARGEN_MAX}%. Bájalo para continuar.`;
   }
-  else if (!$("calcSucursal").value) msg = "Elige una sucursal para poder publicar.";
+  else if (_sucSel.size === 0) msg = "Marca al menos una sucursal para poder enviar a revisión.";
   else if (c.plista <= 0) msg = "El P.Lista debe ser mayor que 0.";
   else if (c.plista > recibido) msg = `El P.Lista ${clp(c.plista)} supera lo que nos pagan (${clp(recibido)}): sería comprar con pérdida.`;
   else if (c.pmax > recibido) msg = `El P.Máx ${clp(c.pmax)} supera lo que nos pagan (${clp(recibido)}). Baja el spread o el margen.`;
@@ -294,14 +337,18 @@ async function onPublicar() {
     spreadPct: num("calcBNum"), ivaPct: num("calcIvaNum"),
     vol: num("calcVolExacto"), modo: _modo,
   });
-  const suc = $("calcSucursal").value;
-  const nombreSuc = suc === SANTIAGO ? "Santiago (Maipú + Cerrillos)"
-    : (_sucursales.find((s) => s.sucursal_id === suc)?.nombre || suc);
+  const elegidas = sucursalesElegidas();            // ej. ["santiago","talca"]
+  const representante = elegidas[0];                 // sucursal_id que queda en el borrador
+  const nombresSuc = elegidas
+    .map((id) => _sucOpciones.find((o) => o.sucursal_id === id)?.nombre || id);
 
   abrirModal({
     titulo: "Enviar a revisión",
     cuerpoHTML:
-      `<p>Vas a enviar a <b>revisión</b> <b>${esc(_sel.material || _sel.material_texto)}</b> en <b>${esc(nombreSuc)}</b>.</p>
+      `<p>Vas a enviar a <b>revisión</b> <b>${esc(_sel.material || _sel.material_texto)}</b> en:</p>
+       <div style="margin:8px 0;display:flex;flex-wrap:wrap;gap:6px">${
+         nombresSuc.map((n) => `<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600">${esc(n)}</span>`).join("")
+       }</div>
        <table style="width:100%;margin-top:10px;font-size:14px">
          <tr><td style="padding:3px 0">P.Lista (saldrá a la web)</td><td style="text-align:right;font-weight:700;color:#047857">${clp(c.plista)}</td></tr>
          <tr><td style="padding:3px 0">P.Ejecutivo</td><td style="text-align:right;font-weight:600">${clp(c.pejec)}</td></tr>
@@ -316,13 +363,15 @@ async function onPublicar() {
           const $m = $("calcMsg");
           try {
             $m.textContent = "Enviando…";
-            // La sucursal (incluido "santiago") viaja tal cual; el fanout a Maipú + Cerrillos
-            // lo resuelve la aprobación en Revisión. La escalera va en `calculo`.
+            // Selección múltiple: la lista completa viaja en `calculo.sucursales`; el borrador
+            // guarda una sucursal representante. La aprobación en Revisión hace el fanout a
+            // TODAS (y expande "santiago" → Maipú + Cerrillos). La escalera va en `calculo`.
             await enviarARevision({
-              id: _sel.id, sucursalId: suc, precioPublicado: c.plista,
+              id: _sel.id, sucursalId: representante, precioPublicado: c.plista,
               calculo: {
                 ejecutivo: c.pejec, maximo: c.pmax, flete: num("calcFlNum"),
                 spread: num("calcBNum"), iva: num("calcIvaNum"), redondeo: _modo,
+                sucursales: elegidas,
               },
             });
             $m.textContent = "Enviado a revisión.";

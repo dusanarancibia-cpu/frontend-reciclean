@@ -1,6 +1,6 @@
 // ROUTER · Punto de entrada del panel modular.
 // Monta sidebar + navbar, inyecta la vista pedida en #content y arranca su controlador.
-import { renderSidebar, setActive, MENU } from "../components/sidebar.js";
+import { renderSidebar, setActive, refrescarBadges, MENU } from "../components/sidebar.js";
 import { renderNavbar, setUsuario } from "../components/navbar.js";
 import { renderDiegoWidget } from "../components/diegoWidget.js";
 import { getSession, waitSupabase } from "./supabase.js";
@@ -76,12 +76,12 @@ const ROUTES = {
   "comercial-cobranza":         { archivo: "modulos/comercial/comercial-cobranza",         hash: "/comercial/cobranza",         mount: mountComercialCobranza },
   // ── Administración
   usuarios:      { archivo: "modulos/administracion/usuarios", hash: "/administracion/usuarios", mount: mountUsuarios },
-  // ── Home (placeholder sobre la plantilla "inicio")
-  inicio:        { archivo: "modulos/home/inicio", hash: "/inicio",       titulo: "Inicio", icono: "🏠" },
-  "mi-dia":      { archivo: "modulos/home/inicio", hash: "/mi-dia",       titulo: "Mi Día", icono: "📆" },
-  bandeja:       { archivo: "modulos/home/inicio", hash: "/bandeja",      titulo: "Mi Bandeja", icono: "📥" },
-  firmas:        { archivo: "modulos/home/inicio", hash: "/firmas",       titulo: "Firmas pendientes", icono: "✍️" },
-  "mesa-control":{ archivo: "modulos/home/inicio", hash: "/mesa-control", titulo: "Mesa Control", icono: "🎛️" },
+  // ── Generales (placeholder sobre la plantilla "inicio")
+  inicio:        { archivo: "modulos/generales/inicio", hash: "/inicio",       titulo: "Inicio", icono: "🏠" },
+  "mi-dia":      { archivo: "modulos/generales/inicio", hash: "/mi-dia",       titulo: "Mi Día", icono: "📆" },
+  bandeja:       { archivo: "modulos/generales/inicio", hash: "/bandeja",      titulo: "Mi Bandeja", icono: "📥" },
+  firmas:        { archivo: "modulos/generales/inicio", hash: "/firmas",       titulo: "Firmas pendientes", icono: "✍️" },
+  "mesa-control":{ archivo: "modulos/generales/inicio", hash: "/mesa-control", titulo: "Mesa Control", icono: "🎛️" },
   // (El login real es /login.html en la raíz — boot() redirige duro allí sin sesión.)
 };
 // Mapa hash-bonito → clave, para resolver la URL de vuelta a la KEY interna.
@@ -151,7 +151,7 @@ async function navigate(route) {
   }
 
   // Placeholder: rellena el título/ícono de la plantilla "inicio"
-  if (r.archivo === "modulos/home/inicio" && r.titulo) {
+  if (r.archivo === "modulos/generales/inicio" && r.titulo) {
     const t = document.getElementById("inicioTitulo");
     const i = document.getElementById("inicioIcono");
     if (t) t.textContent = r.titulo;
@@ -164,6 +164,10 @@ async function navigate(route) {
 
   // Controlador de la vista (si tiene)
   if (r.mount) await r.mount();
+
+  // El badge de pendientes puede haber cambiado (ej. tras enviar a revisión o cargar filas):
+  // se recalcula al terminar cada navegación. Es un HEAD count barato y falla en silencio.
+  refrescarBadges($sidebar);
 }
 
 async function boot() {
@@ -178,6 +182,12 @@ async function boot() {
 
   renderSidebar($sidebar, navigate, puede);
   renderNavbar($navbar);
+
+  // Badge de pendientes: una lectura al arrancar y luego un refresco suave cada 60 s, para
+  // que el número siga vivo aunque el usuario se quede en una pantalla. navigate() también
+  // lo actualiza tras cada acción. Es un HEAD count (solo el número) y falla en silencio.
+  refrescarBadges($sidebar);
+  setInterval(() => refrescarBadges($sidebar), 60000);
 
   // Reloj en vivo (siempre hora de Chile): actualiza header y footer cada 30 s.
   iniciarRelojChile();

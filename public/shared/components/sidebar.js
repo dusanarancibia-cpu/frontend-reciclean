@@ -1,6 +1,9 @@
 // COMPONENTE · Menú lateral izquierdo con secciones desplegables (acordeón).
-// MENU = lista de secciones; cada sección tiene items {ico,label,route,ready}.
+// MENU = lista de secciones; cada sección tiene items {ico,label,route,ready,badge?}.
 // ready:false → muestra "pronto" (aún vive en el monolito).
+// badge:true  → reserva un círculo rojo de notificación (ej. pendientes en Calculadora),
+//               que refrescarBadges() rellena con el conteo real desde Supabase.
+import { getClient } from "../js/supabase.js";
 
 export const MENU = [
   { seccion: "Home", ico: "🏠", items: [
@@ -10,17 +13,16 @@ export const MENU = [
     { ico: "✍️", label: "Firmas pendientes", route: "firmas",       ready: false },
     { ico: "🎛️", label: "Mesa Control",      route: "mesa-control", ready: false },
   ]},
-  // Orden del flujo real del dato: Carga Manual → Calculadora → Publicados → Historial.
-  // "Pendientes" se retiró: la Calculadora lista la misma cola y la resuelve completa.
-  // Orden estricto del nuevo flujo operativo: Carga → Calculadora → Revisión (aprobación)
-  // → Publicados → Historial → Recibidos (auditoría de precios que nos dan los clientes).
+  // Orden estricto del flujo operativo pedido: Carga Manual → Recibidos (auditoría de lo que
+  // nos dan los clientes) → Calculadora (con badge de pendientes) → Revisión (aprobación) →
+  // Publicados → Historial. "Pendientes" se retiró: la Calculadora lista la misma cola.
   { seccion: "Precios", ico: "🏷️", items: [
     { ico: "📝", label: "Carga Manual",  route: "carga-manual", ready: true },
-    { ico: "🧮", label: "Calculadora",   route: "calculadora",  ready: true },
+    { ico: "📥", label: "Recibidos",     route: "recibidos",    ready: true },
+    { ico: "🧮", label: "Calculadora",   route: "calculadora",  ready: true, badge: true },
     { ico: "🔎", label: "Revisión",      route: "revision",     ready: true },
     { ico: "🌐", label: "Publicados",    route: "publicados",   ready: true },
     { ico: "📚", label: "Historial",     route: "historial",    ready: true },
-    { ico: "📥", label: "Recibidos",     route: "recibidos",    ready: true },
   ]},
   // Dominio COMERCIAL (integrado del repo de Pablo). Solo 3 módulos están pulidos
   // (Clientes, Oportunidades, Agenda); los demás quedan como "pronto" hasta terminarlos.
@@ -53,8 +55,11 @@ SECCION_DE["comercial-clientes-detalle"] = "COMERCIAL";
 
 function itemHTML(m) {
   const soon = m.ready ? "" : `<span class="nav-soon">pronto</span>`;
+  // El badge nace oculto (sin número aún). refrescarBadges() lo muestra si hay pendientes.
+  const badge = m.badge
+    ? `<span class="nav-badge" data-badge-route="${m.route}" hidden>0</span>` : "";
   return `<div class="nav-item" data-route="${m.route}" title="${m.label}">
-    <span class="nav-ico">${m.ico}</span><span class="nav-label">${m.label}</span>${soon}</div>`;
+    <span class="nav-ico">${m.ico}</span><span class="nav-label">${m.label}</span>${badge}${soon}</div>`;
 }
 
 // Las secciones nacen PLEGADAS (sin `open`) para no saturar el menú. setActive() abre solo
@@ -107,6 +112,24 @@ export function renderSidebar(mountEl, onNavigate, puede = null) {
   // Reactivar transiciones una vez pintado el estado inicial (doble rAF: asegura que el
   // navegador ya hizo layout con el estado abierto antes de permitir animaciones).
   requestAnimationFrame(() => requestAnimationFrame(() => mountEl.classList.remove("no-anim")));
+}
+
+// Refresca los badges de notificación del menú. Hoy solo el de Calculadora: cuenta los
+// borradores en estado 'pendiente' (precios recibidos que aún no se procesan). Usa un
+// HEAD count (head:true) para traer solo el número, no las filas. Falla en silencio:
+// un badge es informativo, nunca debe romper el menú si la consulta no responde.
+export async function refrescarBadges(mountEl = document) {
+  const el = mountEl.querySelector('[data-badge-route="calculadora"]');
+  if (!el) return;
+  try {
+    const { count, error } = await getClient()
+      .from("borradores_panel").select("id", { count: "exact", head: true })
+      .eq("estado", "pendiente");
+    if (error) return;
+    const n = count || 0;
+    if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.hidden = false; }
+    else { el.hidden = true; }
+  } catch { /* silencioso a propósito */ }
 }
 
 // Marca el item activo y asegura que su sección quede abierta

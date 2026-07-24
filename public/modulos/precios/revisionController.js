@@ -19,6 +19,16 @@ const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"))
 const pct = (v) => (v == null || v === "" ? "—" : Number(v) + "%");
 const fechaCorta = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("-") : "—");
 const nombreSuc = (id) => (id === "santiago" ? "Santiago (Maipú + Cerrillos)" : (id || "—"));
+// Prettifica un sucursal_id ("puerto_montt" → "Puerto Montt") para mostrar el fanout.
+const bonitoSuc = (id) => id === "santiago" ? "Santiago (Maipú + Cerrillos)"
+  : String(id || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+// Sucursales destino: si el borrador trae calculo.sucursales (selección múltiple), se
+// listan todas; si no, la sucursal única del borrador (compat).
+function sucursalesDestino(r) {
+  const arr = Array.isArray(r.calculo?.sucursales) ? r.calculo.sucursales : null;
+  if (arr && arr.length) return arr.map(bonitoSuc).join(", ");
+  return nombreSuc(r.sucursal || r.sucursal_id);
+}
 
 const BADGES = [
   "background:#dbeafe;color:#1e40af", "background:#dcfce7;color:#166534",
@@ -98,7 +108,7 @@ function renderRow(r) {
     <td class="px-3 py-2.5 text-center"><input type="checkbox" class="revChk" data-id="${r.id}"></td>
     <td class="px-4 py-2.5 font-medium text-stone-800">${esc(r.material || r.material_texto || "—")}</td>
     <td class="px-4 py-2.5">${badgeEmpresa(r.empresa_cliente)}</td>
-    <td class="px-4 py-2.5 text-stone-600">${esc(nombreSuc(r.sucursal || r.sucursal_id))}</td>
+    <td class="px-4 py-2.5 text-stone-600">${esc(sucursalesDestino(r))}</td>
     <td class="px-4 py-2.5 text-right text-stone-500">${clp(r.precio_recibido_clp)}</td>
     <td class="px-4 py-2.5 text-right font-semibold text-emerald-700">${clp(r.precio_publicado_clp)}</td>
     <td class="px-4 py-2.5 text-right whitespace-nowrap">
@@ -125,7 +135,7 @@ function verDetalle(id) {
     cuerpoHTML:
       filaDet("Material", esc(r.material || r.material_texto || "—")) +
       filaDet("Empresa / Cliente", r.empresa_cliente ? esc(r.empresa_cliente) : "—") +
-      filaDet("Sucursal", esc(nombreSuc(r.sucursal || r.sucursal_id))) +
+      filaDet("Sucursales destino", esc(sucursalesDestino(r))) +
       filaDet("Nos pagan (recibido)", clp(r.precio_recibido_clp)) +
       filaDet("P.Lista (saldrá a la web)", `<span style="color:#047857">${clp(r.precio_publicado_clp)}</span>`) +
       filaDet("P.Ejecutivo", clp(c.ejecutivo)) +

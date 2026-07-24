@@ -88,6 +88,49 @@ function celdaCSV(v) {
   return '"' + String(v).replace(/"/g, '""') + '"';
 }
 
+// ── Paginación (escalabilidad) ───────────────────────────────────────────────
+// A miles de filas, ni la red ni el navegador deben tragarse todo de una vez. Dos piezas:
+//
+//  1) rangoSupabase(pagina, tam) → { desde, hasta } para .range() de supabase-js, que en
+//     PostgREST se traduce a LIMIT/OFFSET en el servidor. Solo viaja la página pedida:
+//        const { desde, hasta } = rangoSupabase(pagina, 50);
+//        const { data, count } = await getClient()
+//          .from("historial_panel").select("*", { count: "exact" })
+//          .order("created_at", { ascending:false }).range(desde, hasta);
+//     `count:'exact'` devuelve el total (para pintar "página X de Y") en el mismo viaje.
+//
+//  2) paginarLocal(filas, pagina, tam) → corta en memoria una lista ya cargada (útil cuando
+//     el conjunto es acotado —cientos— y se filtra/ordena en el cliente). Devuelve la página
+//     y metadatos listos para pintar controles.
+//
+// La página es 1-indexada (la primera es 1). `tam` es el tamaño de página (por defecto 50).
+
+export function rangoSupabase(pagina = 1, tam = 50) {
+  const p = Math.max(1, Math.floor(pagina));
+  const t = Math.max(1, Math.floor(tam));
+  const desde = (p - 1) * t;
+  return { desde, hasta: desde + t - 1 };
+}
+
+// Cantidad total de páginas dado un total de filas.
+export function totalPaginas(total, tam = 50) {
+  return Math.max(1, Math.ceil((Number(total) || 0) / Math.max(1, tam)));
+}
+
+export function paginarLocal(filas, pagina = 1, tam = 50) {
+  const lista = Array.isArray(filas) ? filas : [];
+  const t = Math.max(1, Math.floor(tam));
+  const paginas = totalPaginas(lista.length, t);
+  const p = Math.min(Math.max(1, Math.floor(pagina)), paginas); // acota a rango válido
+  const desde = (p - 1) * t;
+  return {
+    filas: lista.slice(desde, desde + t),
+    pagina: p, tam: t, total: lista.length, paginas,
+    hayAnterior: p > 1, haySiguiente: p < paginas,
+    desde: lista.length ? desde + 1 : 0, hasta: Math.min(desde + t, lista.length),
+  };
+}
+
 export function descargarCSV(nombreBase, filas, columnas) {
   const cols = columnas && columnas.length
     ? columnas
