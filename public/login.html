@@ -14,16 +14,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
     integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
     crossorigin="anonymous" defer></script>
-  <script>
-    // login.html es una página STANDALONE: no importa módulos del panel, así que define
-    // su propia config mínima (URL + anon). La fuente única del panel es el RECICLEAN_CONFIG
-    // de index.html; acá solo se necesita para autenticar (no usa Edge Functions).
-    // Repo público: la anon key NO es secreto.
-    window.RECICLEAN_CONFIG = {
-      SUPABASE_URL: "https://eknmtsrtfkzroxnovfqn.supabase.co",
-      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrbm10c3J0Zmt6cm94bm92ZnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDY2ODgsImV4cCI6MjA5MDk4MjY4OH0.8Y4N0lw3DFN3Y8-R6ID7t_LAfgHWDM5N-oa4Ji9bncg",
-    };
-  </script>
+  <!-- Config centralizada (misma que el panel): un solo archivo para migrar credenciales. -->
+  <script src="/config.global.js"></script>
 </head>
 <body class="bg-stone-100 text-stone-800" style="font-family:Inter,system-ui,sans-serif">
   <div class="min-h-screen flex items-center justify-center p-4">
