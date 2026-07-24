@@ -168,19 +168,19 @@ async function aprobar(ids) {
   if (ok) toast(`${ok} precio(s) aprobado(s) y publicado(s).`);
 }
 
+// Rechazo directo: se confirma y se descarta al instante, SIN pedir motivo (se guarda uno
+// fijo para la trazabilidad). El registro sale de la revisión y queda en el Historial.
 function rechazar(id) {
   const r = _rows.find((x) => String(x.id) === String(id));
   abrirModal({
     titulo: "Rechazar precio",
-    cuerpoHTML: `<p>¿Rechazar <b>${esc(r?.material || r?.material_texto || "este precio")}</b>? Sale de la revisión y queda en el Historial.</p>
-      <textarea id="revMotivo" rows="2" placeholder="Motivo (opcional)"
-        style="width:100%;border:1px solid #d6d3d1;border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;margin-top:8px"></textarea>`,
+    cuerpoHTML: `<p>¿Rechazar <b>${esc(r?.material || r?.material_texto || "este precio")}</b>?</p>
+      <p style="font-size:13px;color:#78716c;margin-top:8px">Sale de la revisión de inmediato y queda registrado en el Historial.</p>`,
     acciones: [
       { texto: "Cancelar" },
       { texto: "Rechazar", primario: true, onClick: async () => {
-          const motivo = ($("revMotivo")?.value || "").trim() || "Rechazado en Revisión";
           try {
-            await descartar([Number(id)], motivo);
+            await descartar([Number(id)], "Rechazado en Revisión");
             _rows = _rows.filter((x) => String(x.id) !== String(id));
             _tabla.setRows(_rows); resumen();
             toast("Precio rechazado.");

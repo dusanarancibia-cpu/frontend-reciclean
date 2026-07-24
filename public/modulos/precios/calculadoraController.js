@@ -45,9 +45,9 @@ function badgeEmpresa(nombre) {
   return ` <span style="${BADGES[h % BADGES.length]};padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700">${esc(nombre)}</span>`;
 }
 
-// Regla de negocio: el "Precio Venta" editado no puede superar en más de 15% el precio base
-// asignado originalmente al material (el que traía el pendiente al cargarse).
-const TOPE_VENTA = 0.15;
+// El "Precio Venta" (precio recibido de la fundición) es ahora un DATO FIJO de solo lectura:
+// no se edita a mano. Se toma del pendiente y alimenta la escalera. Así nunca puede romper
+// el constraint precio_escalera_coherente (que además formula.js capa por si acaso).
 
 // Regla de margen (punto 3): parte en 20% por defecto (config def_margen_pct) y NO puede
 // superar 60% — validación bloqueante que impide publicar.
@@ -73,7 +73,6 @@ let _vigente = null;  // precio vigente del par material×sucursal (para el delt
 let _rol = "lector";
 let _modo = "0";      // redondeo activo
 let _buscar = "";     // texto del buscador (se preserva al re-render de la lista)
-let _ventaForzada = false; // ¿el Precio Venta fue editado a mano fuera del valor del pendiente?
 
 export async function mountCalculadora() {
   try {
@@ -197,15 +196,11 @@ function seleccionar(id) {
   _sucSel = new Set(_sel.sucursal_id ? [_sel.sucursal_id] : []);
   pintarSucursales();
 
-  // Precio Venta: parte en el valor base del material. Se puede editar, pero no más de un
-  // +15% sobre ese base (regla de negocio). El tope del slider ya es base×1.15; si alguien
-  // escribe un número mayor en el input, validar() lo bloquea.
+  // Precio Venta: DATO FIJO = lo que nos paga la fundición (precio recibido del pendiente).
+  // No es editable; se muestra como valor y alimenta el cálculo de la escalera.
   const p = Number(_sel.precio_recibido_clp) || 0;
   _baseVenta = p;
-  const sl = $("calcP");
-  sl.min = 0; sl.max = Math.max(Math.round(p * (1 + TOPE_VENTA)), 1); sl.value = p;
-  $("calcPNum").value = p;
-  limpiarAvisoVenta(); // nuevo caso → el Precio Venta vuelve a ser el del pendiente
+  $("calcVentaFijo").textContent = clp(p);
 
   fijar("calcMg", "calcMgNum", _cfg.def_margen_pct);
   fijar("calcFl", "calcFlNum", _cfg.def_flete_clp);
@@ -241,7 +236,6 @@ async function cargarVigente() {
 // Las etiquetas muestran SOLO el valor: la unidad ($/kg, kg, %) ya está fija en el HTML,
 // junto al <strong>. Antes se duplicaba (ej. "500 kg kg", "$0/kg/kg").
 const PARES = [
-  ["calcP", "calcPNum", "calcLblP", (v) => clp(v)],
   ["calcMg", "calcMgNum", "calcLblMg", (v) => v + "%"],
   ["calcFl", "calcFlNum", "calcLblFl", (v) => clp(v)],
   ["calcB", "calcBNum", "calcLblB", (v) => v + "%"],
@@ -280,34 +274,7 @@ function cablearSliders() {
       });
     }
   });
-  // Precio Venta: si se edita fuera del valor del pendiente, se avisa (rompe el automático).
-  ["calcP", "calcPNum"].forEach((id) => $(id)?.addEventListener("input", chequearVentaManual));
   // Las sucursales ahora son tickets (selección múltiple); cada toggle ya llama a cargarVigente().
-}
-
-// Alerta de modificación manual del Precio Venta: si el valor deja de coincidir con el
-// precio recibido del pendiente, se marca el input en rojo y se avisa con un Toast (una vez
-// por transición, no en cada tecla).
-function chequearVentaManual() {
-  const $n = $("calcPNum"), $r = $("calcP");
-  const forzada = _baseVenta > 0 && num("calcPNum") !== _baseVenta;
-  if (forzada) {
-    if ($n) { $n.style.borderColor = "#e11d48"; $n.style.boxShadow = "0 0 0 2px rgba(225,29,72,.25)"; }
-    if ($r) $r.style.accentColor = "#e11d48";
-    if (!_ventaForzada) {
-      _ventaForzada = true;
-      toast("Estás forzando el Precio Venta a mano: rompe el cálculo automático del pendiente.", "aviso");
-    }
-  } else {
-    limpiarAvisoVenta();
-  }
-}
-
-function limpiarAvisoVenta() {
-  _ventaForzada = false;
-  const $n = $("calcPNum"), $r = $("calcP");
-  if ($n) { $n.style.borderColor = ""; $n.style.boxShadow = ""; }
-  if ($r) $r.style.accentColor = "";
 }
 
 function cablearRedondeo() {
@@ -329,7 +296,7 @@ function marcarRedondeo() {
 function recalcular() {
   if (!_sel) return;
   const i = {
-    p: num("calcPNum"), mgPct: num("calcMgNum"), fl: num("calcFlNum"),
+    p: _baseVenta, mgPct: num("calcMgNum"), fl: num("calcFlNum"),
     spreadPct: num("calcBNum"), ivaPct: num("calcIvaNum"),
     vol: num("calcVolExacto"), modo: _modo,
   };
@@ -363,21 +330,16 @@ function recalcular() {
 }
 
 // La base rechaza publicar sobre lo que nos pagan; el aviso lo dice antes de intentarlo.
+// El Precio Venta es fijo (= recibido) y formula.js capa la escalera, así que estos avisos
+// casi nunca se disparan: quedan como red de seguridad legible.
 function validar(c) {
   const recibido = Number(_sel?.precio_recibido_clp) || 0;
-  const venta = num("calcPNum");
-  const topeVenta = _baseVenta * (1 + TOPE_VENTA);
   const $a = $("calcAlerta");
   const $btn = $("calcPublicar");
   let msg = "";
 
-  // El tope del Precio Venta se valida ANTES que el resto: es la regla dura del punto 2.
-  if (_baseVenta > 0 && venta > topeVenta) {
-    msg = `El Precio Venta ${clp(venta)} supera en más de 15% el precio base ` +
-          `(${clp(_baseVenta)} · tope ${clp(Math.round(topeVenta))}). Corrígelo para continuar.`;
-  }
   // Tope de margen (punto 3): sobre 60% no se puede publicar.
-  else if (num("calcMgNum") > MARGEN_MAX) {
+  if (num("calcMgNum") > MARGEN_MAX) {
     msg = `El margen ${num("calcMgNum")}% supera el máximo permitido de ${MARGEN_MAX}%. Bájalo para continuar.`;
   }
   else if (_sucSel.size === 0) msg = "Marca al menos una sucursal para poder enviar a revisión.";
@@ -399,7 +361,7 @@ function cablearAcciones() {
 async function onPublicar() {
   if (!_sel) return;
   const c = calcular({
-    p: num("calcPNum"), mgPct: num("calcMgNum"), fl: num("calcFlNum"),
+    p: _baseVenta, mgPct: num("calcMgNum"), fl: num("calcFlNum"),
     spreadPct: num("calcBNum"), ivaPct: num("calcIvaNum"),
     vol: num("calcVolExacto"), modo: _modo,
   });
@@ -474,7 +436,6 @@ function onDescartar() {
 async function refrescar() {
   _pendientes = await listarBorradores({ estados: ["pendiente"] });
   _sel = null;
-  limpiarAvisoVenta();
   $("calcTrabajo").classList.add("hidden");
   $("calcVacio").classList.remove("hidden");
   pintarLista(filasFiltradas());

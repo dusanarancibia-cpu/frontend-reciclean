@@ -45,6 +45,16 @@ test("calcular · el flete se descuenta del P.Lista bruto y de la contribución"
   assert.equal(c.contrib, 30000);    // 100 * (1000 - 650 - 50)
 });
 
+test("calcular · el máximo nunca supera el recibido (constraint precio_escalera_coherente)", () => {
+  // Margen bajo (20) + spread alto (60): sin capar, pmaxBruto = 800*1.6 = 1280 > recibido.
+  const c = calcular({ p: 1000, mgPct: 20, fl: 0, spreadPct: 60, ivaPct: 0, vol: 0, modo: "exacto" });
+  assert.equal(c.plista, 800);           // 1000 * (1 - 0.20)
+  assert.ok(c.pmax <= 1000, "pmax debe estar capado al recibido");
+  assert.equal(c.pmax, 1000);            // 1280 → capado a 1000
+  // La escalera se mantiene coherente: publicado <= ejecutivo <= maximo <= recibido.
+  assert.ok(c.plista <= c.pejec && c.pejec <= c.pmax && c.pmax <= 1000);
+});
+
 test("semaforo · verde / amarillo / rojo según piso y meta", () => {
   const meta = { min: 6, meta: 30 };
   assert.equal(semaforo(40, meta).nivel, "verde");     // >= meta

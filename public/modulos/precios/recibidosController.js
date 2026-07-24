@@ -8,6 +8,7 @@
 // vigencia y, dentro del mismo día, por hora de ingreso, del más reciente al más antiguo.
 // NO muestra sucursal: esa asignación ocurre después, en la Calculadora.
 import { listarRecibidos } from "./preciosRepo.js";
+import { montarTabla } from "../../shared/js/listaTabla.js";
 import { toast, toastError } from "../../shared/components/toast.js";
 import { escapeHTML, normalizarTexto, descargarCSV, horaChile } from "../../shared/js/util.js";
 import { rolActual } from "../../shared/js/permisos.js";
@@ -33,6 +34,7 @@ function badgeEmpresa(nombre) {
 }
 
 let _rows = [];
+let _tabla = null;
 let _rol = "lector";
 let _debounce = null;
 
@@ -55,8 +57,24 @@ export async function mountRecibidos() {
     }
 
     poblarFiltros();
+    // Tabla con orden por columnas (clic en cabecera): asc → desc → orden original (el del
+    // servidor: fecha/hora de ingreso desc). Paginada para no colgar el navegador con miles.
+    _tabla = montarTabla({
+      tbody: body, thead: $("recHead"), info: $("recInfo"), pager: $("recPager"),
+      rows: visibles(), renderRow: filaHTML, colspan: 4, pageSize: 50,
+      vacio: "Sin precios recibidos con estos filtros.",
+      sorters: {
+        material: (r) => r.material || "",
+        empresa:  (r) => r.empresa_cliente || "",
+        precio:   (r) => Number(r.precio_recibido ?? -1),
+        // La fecha ordena por fecha de vigencia y desempata por hora de ingreso.
+        fecha:    (r) => `${r.fecha || ""} ${r.creado || ""}`,
+      },
+      infoText: (t) => `${t} de ${_rows.length} registro(s).`,
+    });
+
     cablearControles();
-    pintar();
+    resumen();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-rose-600">No pude cargar los recibidos: ${esc(e.message)}</td></tr>`;
   }
@@ -91,12 +109,9 @@ function filaHTML(r) {
   </tr>`;
 }
 
-function pintar() {
-  const filas = visibles();
-  const body = $("recBody");
-  body.innerHTML = filas.length
-    ? filas.map(filaHTML).join("")
-    : `<tr><td colspan="4" class="px-4 py-8 text-center text-stone-400">Sin precios recibidos con estos filtros.</td></tr>`;
+// Reaplica filtros y repinta la tabla (montarTabla conserva el orden elegido por columna).
+function refrescarTabla() {
+  _tabla.setRows(visibles());
   resumen();
 }
 
@@ -117,10 +132,10 @@ function poblarFiltros() {
 }
 
 function cablearControles() {
-  $("recBuscar")?.addEventListener("input", () => { clearTimeout(_debounce); _debounce = setTimeout(pintar, 200); });
-  $("recCategoria")?.addEventListener("change", pintar);
-  $("recEmpresa")?.addEventListener("change", pintar);
-  $("recSoloVigentes")?.addEventListener("change", pintar);
+  $("recBuscar")?.addEventListener("input", () => { clearTimeout(_debounce); _debounce = setTimeout(refrescarTabla, 200); });
+  $("recCategoria")?.addEventListener("change", refrescarTabla);
+  $("recEmpresa")?.addEventListener("change", refrescarTabla);
+  $("recSoloVigentes")?.addEventListener("change", refrescarTabla);
   $("recExportar")?.addEventListener("click", exportar);
 }
 
@@ -151,9 +166,8 @@ function pintarKpis() {
 function resumen() {
   pintarKpis();
   const el = $("recResumen");
+  // recInfo lo administra montarTabla (conteo + página). Aquí solo el chip de resumen.
   if (el) el.textContent = `${visibles().length} de ${_rows.length} registro(s)`;
-  const info = $("recInfo");
-  if (info) info.textContent = "Ordenado por fecha y hora de ingreso (más reciente primero).";
 }
 
 function pintarRol() {

@@ -41,15 +41,17 @@
     <span id="recResumen" class="text-xs text-stone-500"></span>
   </div>
 
-  <!-- Tabla plana ordenada por fecha/hora de ingreso (más reciente primero). Sin sucursal. -->
+  <!-- Tabla plana. Por defecto llega ordenada por fecha/hora de ingreso (más reciente
+       primero); las cabeceras con data-sort permiten reordenar asc/desc (clic) por cualquier
+       columna. Sin sucursal. -->
   <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
+      <thead id="recHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
         <tr>
-          <th class="text-left px-4 py-2.5">Material</th>
-          <th class="text-left px-4 py-2.5">Empresa / Cliente</th>
-          <th class="text-right px-4 py-2.5">Precio Recibido</th>
-          <th class="text-left px-4 py-2.5">Fecha de ingreso</th>
+          <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
+          <th class="text-left px-4 py-2.5" data-sort="empresa">Empresa / Cliente</th>
+          <th class="text-right px-4 py-2.5" data-sort="precio">Precio Recibido</th>
+          <th class="text-left px-4 py-2.5" data-sort="fecha">Fecha de ingreso</th>
         </tr>
       </thead>
       <tbody id="recBody" class="divide-y divide-stone-100">
@@ -57,5 +59,6 @@
       </tbody>
     </table>
   </div>
+  <div id="recPager"></div>
   <p class="text-xs text-stone-500 mt-3" id="recInfo"></p>
 </section>

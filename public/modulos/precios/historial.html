@@ -29,6 +29,13 @@
       <option value="baja">Bajadas</option>
       <option value="retiro">Retiros</option>
     </select>
+    <!-- Estado del precio: activo = sigue vigente en la web; inactivo = ya fue reemplazado
+         (se le puso vigencia_hasta al publicar uno nuevo) y quedó como histórico. -->
+    <select id="hisEstado" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white" title="Filtra por si el precio de esa fila sigue vigente o ya fue reemplazado">
+      <option value="">Todos</option>
+      <option value="activo">Solo Activos</option>
+      <option value="inactivo">Solo Inactivos (Históricos)</option>
+    </select>
     <button id="hisExpandir" class="bg-white border border-stone-300 text-stone-600 px-3 py-1.5 rounded text-sm font-medium">Expandir/plegar</button>
     <button id="hisExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">Exportar CSV</button>
     <span id="hisResumen" class="text-xs text-stone-500"></span>
