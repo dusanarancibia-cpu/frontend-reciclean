@@ -10,6 +10,7 @@
 // por gerencia: se administran desde el botón "Categorías" y se asignan en el formulario
 // de cada material.
 import { getClient } from "../../shared/js/supabase.js";
+import { listarEmpresas } from "./preciosRepo.js";
 import { montarAcordeon, agruparPorCategoria } from "../../shared/components/acordeon.js";
 import { abrirModal, cerrarModal } from "../../shared/components/modal.js";
 import { toast, toastError } from "../../shared/components/toast.js";
@@ -277,8 +278,11 @@ function abrirGestionCategorias() {
       <td style="padding:6px 4px"><input class="gcNombre" value="${esc(c.nombre)}" style="width:100%;padding:6px;border:1px solid #d6d3d1;border-radius:6px"></td>
       <td style="padding:6px 4px;width:64px"><input class="gcOrden" type="number" value="${c.orden}" style="width:100%;padding:6px;border:1px solid #d6d3d1;border-radius:6px;text-align:right"></td>
       <td style="padding:6px 4px;text-align:center;width:44px"><input class="gcActiva" type="checkbox" ${c.activa ? "checked" : ""}></td>
-      <td style="padding:6px 4px;color:#a8a29e;font-size:12px;text-align:right;width:52px">${c.materiales ?? 0}</td>
-      <td style="padding:6px 4px;width:64px"><button type="button" class="gcGuardar" style="background:#047857;color:#fff;border:0;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer">Guardar</button></td>
+      <td style="padding:6px 4px;color:#a8a29e;font-size:12px;text-align:right;width:48px">${c.materiales ?? 0}</td>
+      <td style="padding:6px 4px;text-align:right;white-space:nowrap;width:132px">
+        <button type="button" class="gcGuardar" style="background:#047857;color:#fff;border:0;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer">Guardar</button>
+        <button type="button" class="gcEliminar" style="background:#fff;border:1px solid #fca5a5;color:#b91c1c;border-radius:6px;padding:6px 9px;font-size:12px;font-weight:600;cursor:pointer;margin-left:4px">Eliminar</button>
+      </td>
     </tr>`;
 
   abrirModal({
@@ -331,6 +335,12 @@ function abrirGestionCategorias() {
       );
     });
   });
+  document.querySelectorAll("#gcBody .gcEliminar").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tr = btn.closest("tr");
+      confirmarEliminarCategoria(tr.dataset.cat, tr.querySelector(".gcNombre").value.trim());
+    });
+  });
   $("gcCrear")?.addEventListener("click", async () => {
     const nombre = $("gcNuevoNombre").value.trim();
     if (!nombre) return toastError("Escribe el nombre de la categoría.");
@@ -340,16 +350,44 @@ function abrirGestionCategorias() {
   });
 }
 
+// Eliminar una categoría. La BD bloquea si tiene materiales (avisa con el conteo) y protege
+// "Otros". Reabre el modal de categorías al terminar (el modal es único).
+function confirmarEliminarCategoria(id, nombre) {
+  abrirModal({
+    titulo: "Eliminar categoría",
+    cuerpoHTML: `<p>¿Eliminar la categoría <b>${esc(nombre || id)}</b>?</p>
+      <p style="font-size:13px;color:#78716c;margin-top:8px">Solo se puede si no tiene materiales asociados. Si los tiene, reasígnalos a otra categoría primero.</p>`,
+    acciones: [
+      // Cancelar: reabre la lista en el siguiente tick (el cierre por defecto corre después del onClick).
+      { texto: "Cancelar", onClick: () => setTimeout(abrirGestionCategorias, 0) },
+      { texto: "Eliminar", primario: true, onClick: async () => {
+          try {
+            const { error } = await getClient().rpc("f_categoria_eliminar", { p_id: id });
+            if (error) throw new Error(error.message);
+            toast("Categoría eliminada.");
+            await recargar();
+            refrescar();
+          } catch (e) {
+            toastError(/gerencia/i.test(e.message) ? "Solo gerencia administra categorías." : e.message);
+          } finally {
+            cerrarModal();
+            abrirGestionCategorias();   // reabre con la lista fresca
+          }
+        } },
+    ],
+  });
+}
+
 // ── Gestión de empresas / clientes (CRUD, solo gerencia) ──────────────────────
 // Crear, renombrar, activar/desactivar y ELIMINAR las empresas/fundiciones a las que
 // vendemos. Fuente: public.empresas_panel; escribe con f_empresa_guardar / f_empresa_eliminar.
 // Se lee fresco cada vez que se abre (no vive en el estado del catálogo).
 async function abrirGestionEmpresas() {
+  // Fetch FRESCO cada vez que se abre el modal (preciosRepo.listarEmpresas): así la lista no
+  // se queda pegada con datos viejos tras crear/editar/eliminar en otra sesión.
   let empresas = [];
   try {
-    const { data, error } = await getClient().from("empresas_panel").select("*");
-    if (error) throw new Error(error.message);
-    empresas = data || [];
+    empresas = await listarEmpresas();
   } catch (e) {
     return toastError(/gerencia/i.test(e.message) ? "Solo gerencia administra empresas." : e.message);
   }

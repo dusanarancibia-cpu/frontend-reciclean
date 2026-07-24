@@ -331,12 +331,11 @@ export async function mountCargaManual() {
     const dl = $("cmMatList");
     if (dl) dl.innerHTML = _optMat;
 
-    // Selector global de empresa: inserta las conocidas antes de "➕ Otra empresa…".
+    // Selector global de empresa: solo empresas ya existentes (se administran en el Catálogo).
+    // Ya NO se pueden crear empresas desde aquí.
     const selG = $("cmEmpresaGlobal");
-    const inpNueva = $("cmEmpresaNueva");
     if (selG && empresas.length) {
-      const optOtra = selG.querySelector('option[value="__nueva__"]');
-      optOtra.insertAdjacentHTML("beforebegin",
+      selG.insertAdjacentHTML("beforeend",
         empresas.map((e) => `<option value="${esc(e)}">${esc(e)}</option>`).join(""));
     }
     _empresaGlobal = null;
@@ -344,20 +343,10 @@ export async function mountCargaManual() {
     body.innerHTML = "";
     agregarFila();   // arranca con UNA sola fila; el resto se agrega con "+ Agregar fila"
 
-    // Al elegir empresa: fija+bloquea todas las filas; "Otra…" muestra un input libre;
-    // "sin fijar" libera la columna para editar empresa por fila.
+    // Al elegir empresa: fija+bloquea todas las filas; "— sin fijar —" libera la columna.
     selG?.addEventListener("change", () => {
-      if (selG.value === "__nueva__") {
-        inpNueva.classList.remove("hidden"); inpNueva.focus(); liberarEmpresaGlobal();
-      } else if (selG.value === "") {
-        inpNueva.classList.add("hidden"); liberarEmpresaGlobal();
-      } else {
-        inpNueva.classList.add("hidden"); aplicarEmpresaGlobal(selG.value);
-      }
-    });
-    inpNueva?.addEventListener("input", () => {
-      const v = inpNueva.value.trim();
-      if (v) aplicarEmpresaGlobal(v); else liberarEmpresaGlobal();
+      if (selG.value === "") liberarEmpresaGlobal();
+      else aplicarEmpresaGlobal(selG.value);
     });
 
     $("cmAddRow").addEventListener("click", agregarFila);
