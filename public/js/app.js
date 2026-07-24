@@ -5,7 +5,7 @@ import { renderNavbar, setUsuario } from "../components/navbar.js";
 import { renderDiegoWidget } from "../components/diegoWidget.js";
 import { getSession, waitSupabase } from "../models/supabase.js";
 import { iniciarRelojChile } from "./util.js";
-import { cargarPermisos, puede, htmlAccesoDenegado } from "./permisos.js";
+import { cargarPermisos, puede, htmlAccesoDenegado, rolActual } from "./permisos.js";
 import { mountCalculadora } from "../controllers/calculadoraController.js";
 import { initDiego } from "../controllers/diegoController.js";
 import { mountCargaManual } from "../controllers/cargaManualController.js";
@@ -154,9 +154,18 @@ async function boot() {
   renderDiegoWidget(document.getElementById("diego-widget"));
   initDiego();
 
-  // Perfil: si hay sesión Supabase heredada, muestra el email real
-  getSession().then((s) => { if (s?.user?.email) setUsuario($navbar, s.user.email); })
-    .catch(() => {});
+  // Perfil: muestra nombre/rol/email reales. El rol viene de los permisos ya cargados;
+  // nombre/apellido, del metadata del usuario si existe (lo llena la creación de usuarios).
+  getSession().then((s) => {
+    if (!s?.user) return;
+    const meta = s.user.user_metadata || {};
+    setUsuario($navbar, {
+      email: s.user.email,
+      rol: rolActual(),
+      nombre: meta.nombre || meta.first_name || null,
+      apellido: meta.apellido || meta.last_name || null,
+    });
+  }).catch(() => {});
 
   // Ruta inicial: hash (#calculadora) o query ?vista=calculadora. Permite compartir enlaces.
   const vistaQS = new URLSearchParams(location.search).get("vista");

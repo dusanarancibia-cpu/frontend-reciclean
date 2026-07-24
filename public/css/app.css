@@ -6,6 +6,11 @@ body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif
 /* Sidebar --------------------------------------------------------------- */
 .app-sidebar { position: sticky; top: 0; height: 100vh; transition: width .18s ease; }
 
+/* Anti-parpadeo en el primer render: sidebar.js pone .no-anim mientras pinta y lo quita al
+   frame siguiente. Congela TODA transición del menú para que no anime al aparecer. */
+.app-sidebar.no-anim,
+.app-sidebar.no-anim * { transition: none !important; }
+
 /* Secciones desplegables (acordeón) --------------------------------------- */
 .nav-group-h {
   display: flex; align-items: center; gap: 10px; width: calc(100% - 16px);

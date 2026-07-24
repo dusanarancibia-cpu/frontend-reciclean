@@ -57,6 +57,12 @@ export function renderSidebar(mountEl, onNavigate, puede = null) {
     .map((s) => ({ ...s, items: s.items.filter((it) => puede(it.route)) }))
     .filter((s) => s.items.length);
 
+  // Anti-parpadeo (layout shift): mientras se pinta el menú por primera vez, se anulan las
+  // transiciones (ver .no-anim en app.css). Si no, las secciones —que nacen abiertas— animan
+  // su max-height de 0→420 en el primer frame y se ve un "salto". Se reactivan al frame
+  // siguiente, ya con el layout estable, para que el desplegar/colapsar posterior sí anime.
+  mountEl.classList.add("no-anim");
+
   mountEl.innerHTML = `
     <div class="flex items-center gap-2 px-4 h-14 border-b border-stone-800">
       <span class="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0">R</span>
@@ -77,6 +83,10 @@ export function renderSidebar(mountEl, onNavigate, puede = null) {
   // Navegación por item
   mountEl.querySelectorAll(".nav-item").forEach((el) =>
     el.addEventListener("click", () => onNavigate(el.dataset.route)));
+
+  // Reactivar transiciones una vez pintado el estado inicial (doble rAF: asegura que el
+  // navegador ya hizo layout con el estado abierto antes de permitir animaciones).
+  requestAnimationFrame(() => requestAnimationFrame(() => mountEl.classList.remove("no-anim")));
 }
 
 // Marca el item activo y asegura que su sección quede abierta

@@ -118,10 +118,21 @@ const sucVisibles = () => _sucursales.filter(enFiltroSucursal);
 
 function columnas() {
   return [
-    { th: "Material" },
-    ...sucVisibles().map((s) => ({ th: esc(s.nombre), align: "right" })),
-    ...EMPRESAS.map((e) => ({ th: esc(e.etiqueta), align: "center" })),
+    { th: "Material", sort: "material" },
+    ...sucVisibles().map((s) => ({ th: esc(s.nombre), align: "right", sort: "suc_" + s.sucursal_id })),
+    ...EMPRESAS.map((e) => ({ th: esc(e.etiqueta), align: "center", sort: "emp_" + e.id })),
   ];
+}
+
+// Valores para ordenar cada columna (clic en el <th>): material A-Z, precio numérico,
+// empresa por publicado/no. Funciona dentro de cada categoría del acordeón.
+function sorters() {
+  const s = { material: (r) => r.material || "" };
+  _sucursales.forEach((x) => {
+    s["suc_" + x.sucursal_id] = (r) => Number(r.precios[x.sucursal_id]?.precio ?? -1);
+  });
+  EMPRESAS.forEach((e) => { s["emp_" + e.id] = (r) => (r.visible[e.id] ? 1 : 0); });
+  return s;
 }
 
 function visibles() {
@@ -145,6 +156,7 @@ function construir() {
   _acc = montarAcordeon({
     contenedor: $("publicadosAcc"),
     columnas: columnas(),
+    sorters: sorters(),
     grupos: gruposVisibles(),
     renderRow,
     resumenExtra: resumenCategoria,

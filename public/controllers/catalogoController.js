@@ -35,9 +35,14 @@ export async function mountCatalogo() {
     _acc = montarAcordeon({
       contenedor: cont,
       columnas: [
-        { th: "Nombre interno" }, { th: "Nombre público" },
-        { th: "Precios vigentes", align: "center" }, { th: "Acciones", align: "right" },
+        { th: "Nombre interno", sort: "nombre" }, { th: "Nombre público", sort: "publico" },
+        { th: "Precios vigentes", align: "center", sort: "precios" }, { th: "Acciones", align: "right" },
       ],
+      sorters: {
+        nombre:  (r) => r.nombre_interno || "",
+        publico: (r) => r.nombre_publico || "",
+        precios: (r) => Number(r.precios_vigentes ?? 0),
+      },
       grupos: gruposVisibles(),
       renderRow,
       onRender: cablearFilas,
