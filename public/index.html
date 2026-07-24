@@ -25,19 +25,10 @@
     integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
     crossorigin="anonymous" defer></script>
 
-  <!-- Config GLOBAL del panel modular. Se define acá (no se importa un JS de /public
-       por ruta absoluta, que Vite bloquea). El repo es público: la anon key NO es secreto. -->
-  <script>
-    window.RECICLEAN_CONFIG = {
-      SUPABASE_URL: "https://eknmtsrtfkzroxnovfqn.supabase.co",
-      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrbm10c3J0Zmt6cm94bm92ZnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDY2ODgsImV4cCI6MjA5MDk4MjY4OH0.8Y4N0lw3DFN3Y8-R6ID7t_LAfgHWDM5N-oa4Ji9bncg",
-      EF: {
-        precioAplicar: "/functions/v1/precio-aplicar",
-        precioCommand: "/functions/v1/precio-command",
-        diegoChatProcess: "/functions/v1/diego-chat-process",
-      },
-    };
-  </script>
+  <!-- Config GLOBAL del panel (URL + anon key + Edge Functions). Vive en UN solo archivo,
+       /config.global.js, para que migrar de proyecto Supabase sea editar un único lugar.
+       Script CLÁSICO (sin defer): corre antes del módulo app.js, que lee window.RECICLEAN_CONFIG. -->
+  <script src="/config.global.js"></script>
 
   <!-- App modular (router + componentes) · ES modules nativos, sin build -->
   <script type="module" src="/shared/js/app.js"></script>
