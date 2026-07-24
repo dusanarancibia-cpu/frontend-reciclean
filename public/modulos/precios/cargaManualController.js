@@ -9,13 +9,14 @@
 // Solo se piden Material, Precio Venta (lo que nos paga la fundición) y Vigencia:
 // la sucursal y el precio público los asigna gerencia después, en la Calculadora.
 import { getClient, getSession } from "../../shared/js/supabase.js";
-import { cargarFilas, pasarAPendiente, listarBorradores } from "./flujoRepo.js";
+import { cargarFilas, pasarAPendiente, listarBorradores, empresasClientes } from "./flujoRepo.js";
 import { escapeHTML } from "../../shared/js/util.js";
 import { tomarParaCargaManual } from "../../shared/js/traspaso.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
-const INP = "border border-stone-300 rounded px-2 py-1.5 text-sm bg-white";
+// Empresa/cliente global fijada para toda la hoja (null = cada fila define la suya).
+let _empresaGlobal = null;
 // Normaliza texto para emparejar (minúsculas, sin acentos, espacios colapsados).
 const normId = (s) => String(s ?? "").toLowerCase().normalize("NFD")
   .replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
@@ -57,15 +58,14 @@ function hoyISO() {
 // material_id se resuelve al enviar contra _matByName. Ventaja sobre el <select>: se puede
 // escribir para encontrar entre cientos de materiales sin scrollear.
 function filaHTML() {
-  return `<tr class="cmRow hover:bg-stone-50">
-    <td class="px-3 py-2"><input class="cmMat ${INP}" list="cmMatList" autocomplete="off"
-        placeholder="Escribe para buscar…" style="width:100%"></td>
-    <td class="px-3 py-2"><input class="cmEmpresa ${INP}" autocomplete="off" placeholder="Cliente (opcional)" style="width:100%"></td>
-    <td class="px-3 py-2"><input type="number" class="cmPrecio ${INP}" style="width:100%;text-align:right" min="0" step="1" placeholder="0"></td>
-    <td class="px-3 py-2"><input type="date" class="cmFecha ${INP}" style="width:100%" value="${hoyISO()}"></td>
-    <td class="px-2 py-2 text-center">
+  return `<tr class="cmRow">
+    <td><input class="cmMat cm-cell" list="cmMatList" autocomplete="off" placeholder="Escribe para buscar…"></td>
+    <td><input class="cmEmpresa cm-cell" autocomplete="off" placeholder="Cliente (opcional)"></td>
+    <td><input type="number" class="cmPrecio cm-cell" style="text-align:right" min="0" step="1" placeholder="0"></td>
+    <td><input type="date" class="cmFecha cm-cell" value="${hoyISO()}"></td>
+    <td style="text-align:center;padding:0 6px">
       <button type="button" class="cmDel" title="Quitar fila"
-        style="background:#fff;border:1px solid #fca5a5;color:#b91c1c;width:28px;height:28px;border-radius:6px;font-weight:700;cursor:pointer">×</button>
+        style="background:#fff;border:1px solid #fca5a5;color:#b91c1c;width:26px;height:26px;border-radius:6px;font-weight:700;cursor:pointer">×</button>
     </td>
   </tr>`;
 }
@@ -83,7 +83,29 @@ function agregarFila() {
   body.insertAdjacentHTML("beforeend", filaHTML());
   const tr = body.lastElementChild;
   wireFila(tr);
+  // Si hay una empresa global fijada, la fila nueva también nace con ella (rellenada+bloqueada).
+  if (_empresaGlobal != null) bloquearEmpresa(tr, _empresaGlobal);
   return tr;
+}
+
+// ── Empresa/Cliente global (fija y bloquea la columna Empresa en todas las filas) ──────
+function bloquearEmpresa(tr, nombre) {
+  const inp = tr.querySelector(".cmEmpresa");
+  if (!inp) return;
+  inp.value = nombre;
+  inp.readOnly = true;
+}
+function liberarEmpresaFila(tr) {
+  const inp = tr.querySelector(".cmEmpresa");
+  if (inp) inp.readOnly = false;
+}
+function aplicarEmpresaGlobal(nombre) {
+  _empresaGlobal = nombre;
+  [...$("cmBody").querySelectorAll(".cmRow")].forEach((tr) => bloquearEmpresa(tr, nombre));
+}
+function liberarEmpresaGlobal() {
+  _empresaGlobal = null;
+  [...$("cmBody").querySelectorAll(".cmRow")].forEach(liberarEmpresaFila);
 }
 
 // ── Lectura de archivos ───────────────────────────────────────────────────────
@@ -174,7 +196,9 @@ function volcarFilas(objetos, etiquetaOrigen) {
     // El combobox muestra el NOMBRE: si se reconoció, el canónico del catálogo; si no, el
     // texto crudo para que el usuario lo corrija a ojo (queda en ámbar).
     tr.querySelector(".cmMat").value = matId ? (_nameById.get(matId) || o.material || "") : (o.material || "");
-    if (o.empresa) tr.querySelector(".cmEmpresa").value = o.empresa;
+    // Si hay empresa global fijada, ella manda (toda la hoja es de esa empresa) y la celda
+    // ya quedó rellenada+bloqueada por agregarFila; si no, se usa la del archivo.
+    if (_empresaGlobal == null && o.empresa) tr.querySelector(".cmEmpresa").value = o.empresa;
     const precio = parseNum(o.precio);
     if (Number.isFinite(precio)) tr.querySelector(".cmPrecio").value = precio;
     const fecha = aFechaISO(o.vigencia);
@@ -292,9 +316,10 @@ export async function mountCargaManual() {
   try {
     // El catálogo sale del caché (1 sola consulta por sesión de página); la sesión se lee
     // aparte. Ambas en paralelo.
-    const [mats, sess] = await Promise.all([
+    const [mats, sess, empresas] = await Promise.all([
       cargarMateriales(),
       getSession().catch(() => null),
+      empresasClientes().catch(() => []),
     ]);
 
     _email = sess?.user?.email || null;
@@ -306,8 +331,34 @@ export async function mountCargaManual() {
     const dl = $("cmMatList");
     if (dl) dl.innerHTML = _optMat;
 
+    // Selector global de empresa: inserta las conocidas antes de "➕ Otra empresa…".
+    const selG = $("cmEmpresaGlobal");
+    const inpNueva = $("cmEmpresaNueva");
+    if (selG && empresas.length) {
+      const optOtra = selG.querySelector('option[value="__nueva__"]');
+      optOtra.insertAdjacentHTML("beforebegin",
+        empresas.map((e) => `<option value="${esc(e)}">${esc(e)}</option>`).join(""));
+    }
+    _empresaGlobal = null;
+
     body.innerHTML = "";
     agregarFila();   // arranca con UNA sola fila; el resto se agrega con "+ Agregar fila"
+
+    // Al elegir empresa: fija+bloquea todas las filas; "Otra…" muestra un input libre;
+    // "sin fijar" libera la columna para editar empresa por fila.
+    selG?.addEventListener("change", () => {
+      if (selG.value === "__nueva__") {
+        inpNueva.classList.remove("hidden"); inpNueva.focus(); liberarEmpresaGlobal();
+      } else if (selG.value === "") {
+        inpNueva.classList.add("hidden"); liberarEmpresaGlobal();
+      } else {
+        inpNueva.classList.add("hidden"); aplicarEmpresaGlobal(selG.value);
+      }
+    });
+    inpNueva?.addEventListener("input", () => {
+      const v = inpNueva.value.trim();
+      if (v) aplicarEmpresaGlobal(v); else liberarEmpresaGlobal();
+    });
 
     $("cmAddRow").addEventListener("click", agregarFila);
     $("cmEnviar").addEventListener("click", onEnviar);

@@ -20,6 +20,7 @@ import { calcular, semaforo } from "../../calculadora/js/model/formula.js";
 import { listarBorradores, enviarARevision, descartar, catalogos, configCalculadora } from "./flujoRepo.js";
 import { precioVigente } from "./preciosRepo.js";
 import { abrirModal } from "../../shared/components/modal.js";
+import { toast } from "../../shared/components/toast.js";
 import { escapeHTML, filtroGlobal } from "../../shared/js/util.js";
 import { rolActual } from "../../shared/js/permisos.js";
 
@@ -53,9 +54,13 @@ const TOPE_VENTA = 0.15;
 const MARGEN_MAX = 60;
 
 // "Santiago" no es una sucursal real: es un atajo que replica el mismo precio en las dos
-// sucursales de la zona (Maipú y Cerrillos). Elegir Maipú o Cerrillos por separado NO replica.
+// sucursales de la zona (Maipú y Cerrillos). Marcar "Santiago" marca también esas dos.
 const SANTIAGO = "santiago";
 const SANTIAGO_FANOUT = ["maipu", "cerrillos"];
+
+// Límites duros de los sliders (punto 3): margen 20–60, spread ≥10. El <input range> ya
+// impide salirse arrastrando (min/max en el HTML); esto cierra el escape de teclear a mano.
+const LIMITES = { calcMgNum: { min: 20, max: 60 }, calcBNum: { min: 10 } };
 
 let _pendientes = [];
 let _sucursales = [];
@@ -67,6 +72,8 @@ let _baseVenta = 0;   // Precio Venta base del material seleccionado (para el to
 let _vigente = null;  // precio vigente del par material×sucursal (para el delta)
 let _rol = "lector";
 let _modo = "0";      // redondeo activo
+let _buscar = "";     // texto del buscador (se preserva al re-render de la lista)
+let _ventaForzada = false; // ¿el Precio Venta fue editado a mano fuera del valor del pendiente?
 
 export async function mountCalculadora() {
   try {
@@ -123,11 +130,17 @@ function pintarLista(filas) {
   $("calcResumen").textContent = `${filas.length} pendiente(s) de ${_pendientes.length}`;
 }
 
+// Pendientes que pasan el filtro del buscador (según _buscar). Es la única fuente para
+// pintar la lista, así el filtro se mantiene aunque re-renderice (ej. al elegir un caso).
+function filasFiltradas() {
+  return filtroGlobal(_pendientes, _buscar, ["material", "material_texto", "empresa_cliente", "origen", "creado_por"]);
+}
+
 function cablearBuscador() {
   const b = $("calcBuscar");
   if (!b) return;
-  b.addEventListener("input", () =>
-    pintarLista(filtroGlobal(_pendientes, b.value, ["material", "material_texto", "empresa_cliente", "origen", "creado_por"])));
+  b.value = _buscar; // restaura el texto si se re-montó la vista
+  b.addEventListener("input", () => { _buscar = b.value; pintarLista(filasFiltradas()); });
 }
 
 // ── Sucursales (selección múltiple con tickets) ───────────────────────────────
@@ -157,7 +170,13 @@ function pintarSucursales() {
 }
 
 function toggleSucursal(id) {
-  if (_sucSel.has(id)) _sucSel.delete(id); else _sucSel.add(id);
+  const activar = !_sucSel.has(id);
+  if (activar) _sucSel.add(id); else _sucSel.delete(id);
+  // Marcar "Santiago" arrastra a Cerrillos + Maipú (y desmarcarla las quita). Así el
+  // usuario ve las tres casillas marcadas, coherente con el fanout de la publicación.
+  if (id === SANTIAGO) {
+    SANTIAGO_FANOUT.forEach((s) => { if (activar) _sucSel.add(s); else _sucSel.delete(s); });
+  }
   pintarSucursales();
   cargarVigente(); // el delta vs vigente se recalcula contra la primera sucursal marcada
 }
@@ -186,6 +205,7 @@ function seleccionar(id) {
   const sl = $("calcP");
   sl.min = 0; sl.max = Math.max(Math.round(p * (1 + TOPE_VENTA)), 1); sl.value = p;
   $("calcPNum").value = p;
+  limpiarAvisoVenta(); // nuevo caso → el Precio Venta vuelve a ser el del pendiente
 
   fijar("calcMg", "calcMgNum", _cfg.def_margen_pct);
   fijar("calcFl", "calcFlNum", _cfg.def_flete_clp);
@@ -194,7 +214,7 @@ function seleccionar(id) {
   fijar("calcIva", "calcIvaNum", _cfg.def_iva_pct);
 
   marcarRedondeo();
-  pintarLista(_pendientes);
+  pintarLista(filasFiltradas()); // conserva el filtro del buscador tras elegir un caso
   cargarVigente();
   recalcular();
 }
@@ -229,19 +249,65 @@ const PARES = [
   ["calcIva", "calcIvaNum", "calcLblIva", (v) => v + "%"],
 ];
 
+function clampNum(id, v) {
+  const L = LIMITES[id]; if (!L || !Number.isFinite(v)) return v;
+  if (L.min != null && v < L.min) v = L.min;
+  if (L.max != null && v > L.max) v = L.max;
+  return v;
+}
+
 function cablearSliders() {
   PARES.forEach(([r, n]) => {
     const $r = $(r), $n = $(n);
     if (!$r || !$n) return;
+    // El <input range> ya está acotado por sus min/max en el HTML: arrastrar no se sale.
     $r.addEventListener("input", () => { $n.value = $r.value; recalcular(); });
+    // El número es el escape: se aplica el TECHO en vivo (no dejar teclear >max) y el PISO
+    // al soltar/cambiar (change), para no bloquear el tecleo intermedio (ej. "2" → "25").
     $n.addEventListener("input", () => {
-      // El número puede salirse del rango del slider (ej. volumen mayor al máximo):
-      // se respeta el valor escrito y el slider solo se acerca lo que puede.
+      const L = LIMITES[n];
+      let v = Number($n.value);
+      if (L && L.max != null && Number.isFinite(v) && v > L.max) { $n.value = L.max; }
       $r.value = $n.value;
       recalcular();
     });
+    if (LIMITES[n]) {
+      $n.addEventListener("change", () => {
+        const v = Number($n.value);
+        if (!Number.isFinite(v)) return;
+        const c = clampNum(n, v);
+        if (c !== v) { $n.value = c; $r.value = c; recalcular(); }
+      });
+    }
   });
+  // Precio Venta: si se edita fuera del valor del pendiente, se avisa (rompe el automático).
+  ["calcP", "calcPNum"].forEach((id) => $(id)?.addEventListener("input", chequearVentaManual));
   // Las sucursales ahora son tickets (selección múltiple); cada toggle ya llama a cargarVigente().
+}
+
+// Alerta de modificación manual del Precio Venta: si el valor deja de coincidir con el
+// precio recibido del pendiente, se marca el input en rojo y se avisa con un Toast (una vez
+// por transición, no en cada tecla).
+function chequearVentaManual() {
+  const $n = $("calcPNum"), $r = $("calcP");
+  const forzada = _baseVenta > 0 && num("calcPNum") !== _baseVenta;
+  if (forzada) {
+    if ($n) { $n.style.borderColor = "#e11d48"; $n.style.boxShadow = "0 0 0 2px rgba(225,29,72,.25)"; }
+    if ($r) $r.style.accentColor = "#e11d48";
+    if (!_ventaForzada) {
+      _ventaForzada = true;
+      toast("Estás forzando el Precio Venta a mano: rompe el cálculo automático del pendiente.", "aviso");
+    }
+  } else {
+    limpiarAvisoVenta();
+  }
+}
+
+function limpiarAvisoVenta() {
+  _ventaForzada = false;
+  const $n = $("calcPNum"), $r = $("calcP");
+  if ($n) { $n.style.borderColor = ""; $n.style.boxShadow = ""; }
+  if ($r) $r.style.accentColor = "";
 }
 
 function cablearRedondeo() {
@@ -366,7 +432,7 @@ async function onPublicar() {
             // Selección múltiple: la lista completa viaja en `calculo.sucursales`; el borrador
             // guarda una sucursal representante. La aprobación en Revisión hace el fanout a
             // TODAS (y expande "santiago" → Maipú + Cerrillos). La escalera va en `calculo`.
-            await enviarARevision({
+            const res = await enviarARevision({
               id: _sel.id, sucursalId: representante, precioPublicado: c.plista,
               calculo: {
                 ejecutivo: c.pejec, maximo: c.pmax, flete: num("calcFlNum"),
@@ -375,6 +441,10 @@ async function onPublicar() {
               },
             });
             $m.textContent = "Enviado a revisión.";
+            toast("Enviado a revisión.", "exito");
+            // Resolución de duplicados: la BD descartó los otros pendientes del mismo material.
+            const desc = Number(res?.descartados) || 0;
+            if (desc > 0) toast(`Se archivaron ${desc} pendiente(s) duplicado(s) del mismo material (siguen en Recibidos).`, "info");
             await refrescar();
           } catch (e) {
             $m.textContent = "";
@@ -404,9 +474,10 @@ function onDescartar() {
 async function refrescar() {
   _pendientes = await listarBorradores({ estados: ["pendiente"] });
   _sel = null;
+  limpiarAvisoVenta();
   $("calcTrabajo").classList.add("hidden");
   $("calcVacio").classList.remove("hidden");
-  pintarLista(_pendientes);
+  pintarLista(filasFiltradas());
 }
 
 function pintarRol() {

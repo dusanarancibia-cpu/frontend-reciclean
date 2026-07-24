@@ -133,6 +133,16 @@ export async function vaciarHistorial({ motivo, antesDe = null, incluirPublicado
   return data;
 }
 
+// Lista de empresas/clientes conocidas, para el selector global de Carga Manual.
+// Fuente: public.empresas_clientes_panel (maestro + clientes ya vistos). Solo gerencia/
+// operador reciben filas; para otros roles vuelve vacío (el selector queda con "Otra…").
+export async function empresasClientes() {
+  const { data, error } = await getClient()
+    .from("empresas_clientes_panel").select("nombre").limit(1000);
+  if (error) return [];
+  return (data || []).map((r) => r.nombre).filter(Boolean);
+}
+
 // Catálogos para los selectores del flujo.
 export async function catalogos() {
   const sb = getClient();

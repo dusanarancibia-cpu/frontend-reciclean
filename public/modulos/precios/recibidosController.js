@@ -1,16 +1,15 @@
 // CONTROLADOR · Recibidos. Auditoría histórica de precios que nos entregan los clientes.
 //
 // Es un registro de SOLO LECTURA: cada fila es un precio recibido (lo que nos pagan) por
-// material, empresa/cliente y sucursal, con su fecha. Fuente: public.recibidos_panel, que
-// solo devuelve datos a gerencia/operador (el precio recibido es interno).
+// material y empresa/cliente, con su fecha. Fuente: public.recibidos_panel, que solo
+// devuelve datos a gerencia/operador (el precio recibido es interno).
 //
-// Se agrupa por categoría en un acordeón (como Publicados/Historial) y ofrece buscador +
-// filtros rápidos por categoría y por empresa. Las combinaciones material+empresa se
-// distinguen con badges de color.
+// Vista PLANA (sin acordeón por categoría): la tabla se ordena estrictamente por fecha de
+// vigencia y, dentro del mismo día, por hora de ingreso, del más reciente al más antiguo.
+// NO muestra sucursal: esa asignación ocurre después, en la Calculadora.
 import { listarRecibidos } from "./preciosRepo.js";
-import { montarAcordeon, agruparPorCategoria } from "../../shared/components/acordeon.js";
 import { toast, toastError } from "../../shared/components/toast.js";
-import { escapeHTML, normalizarTexto, descargarCSV } from "../../shared/js/util.js";
+import { escapeHTML, normalizarTexto, descargarCSV, horaChile } from "../../shared/js/util.js";
 import { rolActual } from "../../shared/js/permisos.js";
 
 const $ = (id) => document.getElementById(id);
@@ -34,21 +33,21 @@ function badgeEmpresa(nombre) {
 }
 
 let _rows = [];
-let _acc = null;
 let _rol = "lector";
 let _debounce = null;
 
 export async function mountRecibidos() {
-  const cont = $("recAcc");
-  cont.innerHTML = `<div class="text-center text-stone-400 text-sm py-8">Cargando…</div>`;
+  const body = $("recBody");
+  body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>`;
 
   try {
+    // El servidor ya devuelve las filas ordenadas por fecha DESC y luego por hora de ingreso.
     _rows = await listarRecibidos({});
     _rol = _rows[0]?.mi_rol || rolActual();
     pintarRol();
 
     if (_rol !== "gerencia" && _rol !== "operador") {
-      cont.innerHTML = "";
+      body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-stone-400">Sin acceso.</td></tr>`;
       $("recAviso").innerHTML = `Tu perfil es <b>${esc(_rol)}</b>: los precios recibidos son información interna, ` +
         `visible solo para gerencia y operadores.`;
       $("recAviso").classList.remove("hidden");
@@ -56,33 +55,14 @@ export async function mountRecibidos() {
     }
 
     poblarFiltros();
-    _acc = montarAcordeon({
-      contenedor: cont,
-      columnas: [
-        { th: "Material", sort: "material" }, { th: "Empresa / Cliente", sort: "empresa" },
-        { th: "Precio Recibido", align: "right", sort: "precio" },
-        { th: "Fecha", sort: "fecha" }, { th: "Sucursal", sort: "sucursal" },
-      ],
-      sorters: {
-        material: (r) => r.material || "",
-        empresa:  (r) => r.empresa_cliente || "",
-        precio:   (r) => Number(r.precio_recibido ?? -1),
-        fecha:    (r) => r.fecha || "",
-        sucursal: (r) => r.sucursal || "",
-      },
-      grupos: gruposVisibles(),
-      renderRow,
-      abrir: "primero",
-      vacio: "Sin precios recibidos en esta categoría.",
-    });
-
     cablearControles();
-    resumen();
+    pintar();
   } catch (e) {
-    cont.innerHTML = `<div class="text-center text-rose-600 text-sm py-8">No pude cargar los recibidos: ${esc(e.message)}</div>`;
+    body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-rose-600">No pude cargar los recibidos: ${esc(e.message)}</td></tr>`;
   }
 }
 
+// Filtro en memoria. Conserva el orden ya aplicado por el servidor (fecha/hora desc).
 function visibles() {
   const q = normalizarTexto($("recBuscar")?.value || "");
   const cat = $("recCategoria")?.value || "";
@@ -93,24 +73,31 @@ function visibles() {
     if (emp && (r.empresa_cliente || "") !== emp) return false;
     if (soloVig && !r.vigente) return false;
     if (!q) return true;
-    const heno = normalizarTexto(`${r.material} ${r.empresa_cliente || ""} ${r.sucursal || ""}`);
+    const heno = normalizarTexto(`${r.material} ${r.empresa_cliente || ""}`);
     return q.split(" ").every((p) => heno.includes(p));
   });
 }
 
-function gruposVisibles() {
-  return agruparPorCategoria(visibles()).filter((g) => g.filas.length);
-}
-
-function renderRow(r) {
+function filaHTML(r) {
   return `<tr class="hover:bg-stone-50 ${r.vigente ? "" : "opacity-70"}">
     <td class="px-4 py-2.5 font-medium text-stone-800">${esc(r.material)}${
       r.vigente ? "" : ` <span style="background:#f5f5f4;color:#78716c;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">histórico</span>`}</td>
     <td class="px-4 py-2.5">${badgeEmpresa(r.empresa_cliente)}</td>
     <td class="px-4 py-2.5 text-right font-semibold text-stone-800">${clp(r.precio_recibido)}</td>
-    <td class="px-4 py-2.5 text-stone-600 text-xs whitespace-nowrap">${fechaCorta(r.fecha)}</td>
-    <td class="px-4 py-2.5 text-stone-600">${esc(r.sucursal || "—")}</td>
+    <td class="px-4 py-2.5 text-stone-600 text-xs whitespace-nowrap">
+      <div>${fechaCorta(r.fecha)}</div>
+      <div class="text-stone-400">${esc(horaChile(r.creado))}</div>
+    </td>
   </tr>`;
+}
+
+function pintar() {
+  const filas = visibles();
+  const body = $("recBody");
+  body.innerHTML = filas.length
+    ? filas.map(filaHTML).join("")
+    : `<tr><td colspan="4" class="px-4 py-8 text-center text-stone-400">Sin precios recibidos con estos filtros.</td></tr>`;
+  resumen();
 }
 
 // ── Filtros ─────────────────────────────────────────────────────────────────
@@ -130,15 +117,10 @@ function poblarFiltros() {
 }
 
 function cablearControles() {
-  const refrescar = () => { _acc.setGrupos(gruposVisibles()); resumen(); };
-  $("recBuscar")?.addEventListener("input", () => { clearTimeout(_debounce); _debounce = setTimeout(refrescar, 200); });
-  $("recCategoria")?.addEventListener("change", refrescar);
-  $("recEmpresa")?.addEventListener("change", refrescar);
-  $("recSoloVigentes")?.addEventListener("change", refrescar);
-  $("recExpandir")?.addEventListener("click", () => {
-    const abierto = document.querySelector("#recAcc .rc-acc-grupo.abierto");
-    if (abierto) _acc.cerrarTodos(); else _acc.abrirTodos();
-  });
+  $("recBuscar")?.addEventListener("input", () => { clearTimeout(_debounce); _debounce = setTimeout(pintar, 200); });
+  $("recCategoria")?.addEventListener("change", pintar);
+  $("recEmpresa")?.addEventListener("change", pintar);
+  $("recSoloVigentes")?.addEventListener("change", pintar);
   $("recExportar")?.addEventListener("click", exportar);
 }
 
@@ -151,7 +133,7 @@ function exportar() {
     { clave: "empresa_cliente", titulo: "Empresa/Cliente" },
     { clave: "precio_recibido", titulo: "Precio Recibido" },
     { clave: "fecha", titulo: "Fecha", map: (v) => fechaCorta(v) },
-    { clave: "sucursal", titulo: "Sucursal" },
+    { clave: "creado", titulo: "Hora de ingreso", map: (v) => horaChile(v) },
     { clave: "vigente", titulo: "Vigente", map: (v) => (v ? "Sí" : "No") },
   ]);
   toast(`Exportados ${filas.length} registro(s).`);
@@ -171,7 +153,7 @@ function resumen() {
   const el = $("recResumen");
   if (el) el.textContent = `${visibles().length} de ${_rows.length} registro(s)`;
   const info = $("recInfo");
-  if (info) info.textContent = `${gruposVisibles().length} categoría(s).`;
+  if (info) info.textContent = "Ordenado por fecha y hora de ingreso (más reciente primero).";
 }
 
 function pintarRol() {
