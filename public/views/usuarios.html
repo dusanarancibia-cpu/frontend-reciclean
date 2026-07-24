@@ -33,14 +33,13 @@
 
   <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
     <input id="usrBuscar" type="search" placeholder="Buscar persona…"
-      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[200px]">
+      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[180px]">
     <select id="usrRolLote" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
       <option value="">— rol a aplicar —</option>
-      <option value="gerencia">gerencia</option>
-      <option value="operador">operador</option>
-      <option value="lector">lector</option>
     </select>
     <button id="usrAplicarLote" class="bg-stone-800 text-white px-3 py-1.5 rounded text-sm font-medium">Aplicar a seleccionados</button>
+    <button id="usrRoles" class="hidden bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">Roles</button>
+    <button id="usrCrear" class="hidden bg-emerald-700 text-white px-3 py-1.5 rounded text-sm font-semibold">+ Crear usuario</button>
   </div>
 
   <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
