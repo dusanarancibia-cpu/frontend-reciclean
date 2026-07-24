@@ -34,6 +34,18 @@ export async function cargarFilas(filas, origen = "carga_manual") {
   return data;
 }
 
+// DOBLE FLUJO de Carga Manual (un solo RPC atómico): cada precio ingresado se guarda a la vez
+//   (1) en el histórico INMUTABLE de Recibidos (precios_v3.recibido), y
+//   (2) en la cola operativa como borrador 'pendiente' (para la Calculadora).
+// Devuelve { ok, recibidos, pendientes }.
+export async function ingresarCargaManual(filas, origen = "carga_manual") {
+  const { data, error } = await getClient().rpc("f_carga_manual_ingresar", {
+    p_filas: filas, p_origen: origen,
+  });
+  if (error) throw new Error(traducir(error.message));
+  return data;
+}
+
 export async function pasarAPendiente(ids) {
   const { data, error } = await getClient().rpc("f_borrador_a_pendiente", { p_ids: ids });
   if (error) throw new Error(traducir(error.message));
