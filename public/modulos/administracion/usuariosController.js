@@ -27,17 +27,35 @@ const COLOR = {
 };
 const colorRol = (id) => COLOR[id] || "bg-violet-100 text-violet-800";
 
-// Módulos que pueden encenderse/apagarse (por rol o por usuario), con nombre legible.
-const MODULOS = [
-  { ruta: "inicio",       label: "Inicio" },
-  { ruta: "carga-manual", label: "Carga Manual" },
-  { ruta: "calculadora",  label: "Calculadora" },
-  { ruta: "publicados",   label: "Publicados" },
-  { ruta: "historial",    label: "Historial" },
-  { ruta: "materiales",   label: "Materiales y Precios" },
-  { ruta: "catalogo",     label: "Catálogo" },
-  { ruta: "usuarios",     label: "Usuarios y permisos" },
+// Módulos que pueden encenderse/apagarse (por rol o por usuario), AGRUPADOS por su categoría
+// padre (Precios, Comercial, Administración…). El agrupamiento se usa en la matriz de permisos
+// con un checkbox padre por sección. Las rutas coinciden con las KEYS del router/RBAC.
+const GRUPOS_MODULOS = [
+  { grupo: "General", modulos: [
+    { ruta: "inicio", label: "Inicio" },
+  ]},
+  { grupo: "Precios", modulos: [
+    { ruta: "carga-manual", label: "Carga Manual" },
+    { ruta: "recibidos",    label: "Recibidos" },
+    { ruta: "calculadora",  label: "Calculadora" },
+    { ruta: "revision",     label: "Revisión" },
+    { ruta: "publicados",   label: "Publicados" },
+    { ruta: "historial",    label: "Historial" },
+    { ruta: "materiales",   label: "Materiales y Precios" },
+    { ruta: "catalogo",     label: "Catálogo" },
+  ]},
+  { grupo: "Comercial", modulos: [
+    { ruta: "comercial",               label: "Mesa Comercial" },
+    { ruta: "comercial-clientes",      label: "Clientes / Cartera" },
+    { ruta: "comercial-oportunidades", label: "Oportunidades" },
+    { ruta: "comercial-agenda",        label: "Agenda de servicios" },
+  ]},
+  { grupo: "Administración", modulos: [
+    { ruta: "usuarios", label: "Usuarios y permisos" },
+  ]},
 ];
+// Lista plana derivada, para lo que necesita iterar todos los módulos.
+const MODULOS = GRUPOS_MODULOS.flatMap((g) => g.modulos);
 
 let _filas = [];   // usuarios
 let _roles = [];    // roles_panel: [{id,nombre,protegido,es_admin,rutas,usuarios}]
@@ -70,7 +88,7 @@ export async function mountUsuarios() {
 
     const [usr, rls, suc] = await Promise.all([
       getClient().from("usuarios_panel")
-        .select("user_id, email, rol, nombre, apellido, sucursal_asignada, sucursal_nombre, asignado_por, updated_at, last_sign_in_at, activo, permisos, mi_rol")
+        .select("user_id, email, rol, nombre, apellido, sucursal_asignada, sucursal_nombre, sucursales_permitidas, asignado_por, updated_at, last_sign_in_at, activo, permisos, mi_rol")
         .order("email"),
       getClient().from("roles_panel").select("id, nombre, protegido, es_admin, rutas, usuarios").order("id"),
       getClient().from("sucursales_panel").select("sucursal_id, nombre, activa").eq("activa", true).order("nombre"),
@@ -200,9 +218,21 @@ function abrirEditor(r) {
         </label>
       </div>
       ${adminAviso}
+      <div style="font-size:12px;color:#57534e;font-weight:600;margin:6px 0 2px">Sucursales con acceso</div>
+      <div id="usrEdSucursales" style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 2px 4px">
+        ${_sucursales.map((s) => {
+          const on = (r.sucursales_permitidas || []).includes(s.sucursal_id);
+          return `<label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:#1c1917;cursor:pointer">
+            <input type="checkbox" class="usrSuc" data-suc="${esc(s.sucursal_id)}" ${on ? "checked" : ""} style="width:16px;height:16px"> ${esc(s.nombre)}</label>`;
+        }).join("") || `<span style="font-size:12px;color:#a8a29e">No hay sucursales cargadas.</span>`}
+      </div>
+      <p style="font-size:11px;color:#a8a29e;margin:2px 0 10px">Marca las sucursales cuyas operaciones puede ver/gestionar este usuario.</p>
+
       <div style="font-size:12px;color:#57534e;font-weight:600;margin:6px 0 2px">Permisos por módulo</div>
       <table style="width:100%;border-collapse:collapse">
-        <tbody id="usrPermBody">${MODULOS.map(filaPermiso).join("")}</tbody>
+        <tbody id="usrPermBody">${GRUPOS_MODULOS.map((g) =>
+          `<tr><td colspan="2" style="padding:8px 4px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#a8a29e;font-weight:700">${esc(g.grupo)}</td></tr>`
+          + g.modulos.map(filaPermiso).join("")).join("")}</tbody>
       </table>
       <p style="font-size:11px;color:#a8a29e;margin-top:8px">Los cambios se guardan al instante.</p>`,
     acciones: [{ texto: "Cerrar", primario: true }],
@@ -246,6 +276,21 @@ function abrirEditor(r) {
       e.target.value = anterior;
       toastError(err.message);
     }
+  });
+
+  // Acceso multi-sucursal: cada cambio envía la lista completa marcada (f_usuario_sucursales).
+  document.querySelectorAll("#usrEdSucursales .usrSuc").forEach((chk) => {
+    chk.addEventListener("change", async () => {
+      const seleccion = [...document.querySelectorAll("#usrEdSucursales .usrSuc:checked")].map((c) => c.dataset.suc);
+      try {
+        await rpc("f_usuario_sucursales", { p_user_id: r.user_id, p_sucursales: seleccion });
+        r.sucursales_permitidas = seleccion;
+        toast("Sucursales de acceso actualizadas.");
+      } catch (err) {
+        chk.checked = !chk.checked;
+        toastError(err.message);
+      }
+    });
   });
 
   document.querySelectorAll("#usrPermBody .usrPerm").forEach((sel) => {
@@ -341,11 +386,20 @@ async function crearUsuario() {
 
 // ── Gestión de roles ───────────────────────────────────────────────────────────
 function abrirRoles() {
+  // Permisos AGRUPADOS por categoría padre; cada grupo con un checkbox padre que marca/
+  // desmarca todas sus vistas hijas. Los roles admin (acceso total) no muestran matriz.
   const filaRol = (r) => {
-    const chips = MODULOS.map((m) => {
-      const on = r.es_admin || (r.rutas || []).includes(m.ruta);
-      return `<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#57534e;margin:0 6px 4px 0;cursor:${r.es_admin ? "default" : "pointer"}">
-        <input type="checkbox" class="rolPerm" data-rol="${esc(r.id)}" data-ruta="${esc(m.ruta)}" ${on ? "checked" : ""} ${r.es_admin ? "disabled" : ""}> ${esc(m.label)}</label>`;
+    const grupos = r.es_admin ? "" : GRUPOS_MODULOS.map((g) => {
+      const hijos = g.modulos.map((m) => {
+        const on = (r.rutas || []).includes(m.ruta);
+        return `<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#57534e;margin:0 10px 4px 0;cursor:pointer">
+          <input type="checkbox" class="rolPerm" data-ruta="${esc(m.ruta)}" ${on ? "checked" : ""}> ${esc(m.label)}</label>`;
+      }).join("");
+      return `<div class="rolGrupoWrap" data-rol="${esc(r.id)}" style="margin-top:8px;border-top:1px dashed #ececec;padding-top:6px">
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#1c1917;cursor:pointer">
+          <input type="checkbox" class="rolGrupo"> ${esc(g.grupo)}</label>
+        <div class="rolGrupoHijos" style="margin-top:4px;padding-left:20px">${hijos}</div>
+      </div>`;
     }).join("");
     return `<div data-rolrow="${esc(r.id)}" style="border:1px solid #e7e5e4;border-radius:10px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -356,7 +410,7 @@ function abrirRoles() {
           ${r.protegido ? "" : `<button type="button" class="rolEliminar" data-rol="${esc(r.id)}" style="background:#fff;border:1px solid #fca5a5;color:#b91c1c;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button>`}
         </span>
       </div>
-      ${r.es_admin ? "" : `<div style="margin-top:8px">${chips}</div>`}
+      ${grupos}
     </div>`;
   };
 
@@ -381,15 +435,53 @@ function abrirRoles() {
     poblarSelectorLote();
   };
 
-  // Toggle de permiso por ruta (guarda al instante).
+  // Sincroniza el checkbox padre según sus hijos: todos→marcado, algunos→indeterminado.
+  const sincPadre = (wrap) => {
+    const padre = wrap.querySelector(".rolGrupo");
+    const hijos = [...wrap.querySelectorAll(".rolPerm")];
+    const nOn = hijos.filter((c) => c.checked).length;
+    padre.checked = hijos.length > 0 && nOn === hijos.length;
+    padre.indeterminate = nOn > 0 && nOn < hijos.length;
+  };
+  document.querySelectorAll("#rolLista .rolGrupoWrap").forEach(sincPadre); // estado inicial
+
+  // Hijo: guarda ese permiso al instante y resincroniza su padre.
   document.querySelectorAll("#rolLista .rolPerm").forEach((chk) => {
-    if (chk.disabled) return;
     chk.addEventListener("change", async () => {
+      const wrap = chk.closest(".rolGrupoWrap");
+      const rolId = wrap.dataset.rol;
       try {
-        await rpc("f_rol_permiso_set", { p_rol: chk.dataset.rol, p_ruta: chk.dataset.ruta, p_permitido: chk.checked });
+        await rpc("f_rol_permiso_set", { p_rol: rolId, p_ruta: chk.dataset.ruta, p_permitido: chk.checked });
         await recargarRoles();
+        sincPadre(wrap);
         toast("Permiso del cargo actualizado.");
-      } catch (e) { chk.checked = !chk.checked; toastError(e.message); }
+      } catch (e) { chk.checked = !chk.checked; sincPadre(wrap); toastError(e.message); }
+    });
+  });
+
+  // Padre: marca/desmarca TODAS las vistas del módulo de una vez (regla del checkbox padre).
+  document.querySelectorAll("#rolLista .rolGrupo").forEach((padre) => {
+    padre.addEventListener("change", async () => {
+      const wrap = padre.closest(".rolGrupoWrap");
+      const rolId = wrap.dataset.rol;
+      const objetivo = padre.checked;
+      padre.indeterminate = false;
+      const cambiar = [...wrap.querySelectorAll(".rolPerm")].filter((c) => c.checked !== objetivo);
+      if (!cambiar.length) return;
+      padre.disabled = true;
+      try {
+        await Promise.all(cambiar.map((c) =>
+          rpc("f_rol_permiso_set", { p_rol: rolId, p_ruta: c.dataset.ruta, p_permitido: objetivo })));
+        cambiar.forEach((c) => { c.checked = objetivo; });
+        await recargarRoles();
+        toast(`Módulo actualizado: ${cambiar.length} vista(s) ${objetivo ? "activada(s)" : "desactivada(s)"}.`);
+      } catch (e) {
+        toastError(e.message);
+        await recargarRoles();
+        sincPadre(wrap);
+      } finally {
+        padre.disabled = false;
+      }
     });
   });
   // Renombrar

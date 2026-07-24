@@ -13,7 +13,7 @@
 //
 // Las columnas de sucursal se construyen desde los datos: agregar una sucursal nueva no
 // requiere tocar código ni la vista.
-import { listarPrecios, listarVitrina, publicarMaterial, actualizarPrecio, retirarPrecio,
+import { listarPrecios, listarVitrina, publicarMaterial, actualizarPrecio, retirarPrecioDirecto,
          reiniciarPrecios, contarReinicioPrecios } from "./preciosRepo.js";
 import { montarAcordeon, agruparPorCategoria } from "../../shared/components/acordeon.js";
 import { activarEdicion } from "../../shared/components/precioCelda.js";
@@ -184,7 +184,6 @@ const fechaCorta = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join(
 
 function renderRow(r) {
   const editable = _rol === "gerencia";
-  const visibleEnAlguna = EMPRESAS.some((e) => r.visible[e.id]);
 
   const celdasPrecio = sucVisibles().map((s) => {
     const p = r.precios[s.sucursal_id];
@@ -196,10 +195,12 @@ function renderRow(r) {
     const meta = `<div class="text-[10px] text-stone-400 leading-tight">desde ${fechaCorta(p.vigencia)}${
       p.creado_por ? " · " + esc(p.creado_por) : ""}</div>`;
     const clase = editable ? " pubPrecio" : "";
-    const retiro = (editable && !visibleEnAlguna)
+    // "Retirar/Bajar": disponible siempre para gerencia. Cierra el precio (vigencia_hasta) y
+    // lo baja de la vitrina, aunque el material esté visible en la web (RPC directo).
+    const retiro = editable
       ? `<button type="button" class="pubRetirar" data-mat="${esc(r.material_id)}" data-suc="${esc(s.sucursal_id)}"
-           title="Quitar este precio (el material no está visible en ninguna web)"
-           style="margin-left:6px;border:none;background:none;color:#be123c;cursor:pointer;font-weight:700">×</button>`
+           title="Retirar este precio: lo baja de la vitrina (queda en el historial)"
+           style="margin-left:6px;border:1px solid #fca5a5;background:#fff;color:#be123c;cursor:pointer;font-weight:600;font-size:10px;border-radius:5px;padding:1px 6px">Retirar</button>`
       : "";
     return `<td class="px-4 py-2.5 text-right" data-mat="${esc(r.material_id)}" data-suc="${esc(s.sucursal_id)}">
       <div class="font-semibold text-emerald-700${clase}" data-valor="${p.precio}">${clp(p.precio)}${aviso}${retiro}</div>
@@ -330,16 +331,16 @@ function cablearRetiros(cont) {
       const f = _filas.find((x) => x.material_id === materialId);
       const nombreSuc = _sucursales.find((s) => s.sucursal_id === sucursalId)?.nombre || sucursalId;
       abrirModal({
-        titulo: "Quitar precio",
-        cuerpoHTML: `<p>¿Quitar el precio de <b>${esc(f?.material || materialId)}</b> en <b>${esc(nombreSuc)}</b>?</p>
-          <p style="font-size:13px;color:#78716c;margin-top:8px">Se retira de la lista vigente
-          (queda en el historial). Puedes volver a cargarlo cuando quieras.</p>`,
+        titulo: "Retirar precio",
+        cuerpoHTML: `<p>¿Retirar el precio de <b>${esc(f?.material || materialId)}</b> en <b>${esc(nombreSuc)}</b>?</p>
+          <p style="font-size:13px;color:#78716c;margin-top:8px">Se cierra el precio vigente y <b>baja de la vitrina</b>
+          al instante (queda en el historial como inactivo). Puedes volver a cargarlo cuando quieras.</p>`,
         acciones: [
           { texto: "Cancelar" },
-          { texto: "Quitar", primario: true, onClick: async () => {
+          { texto: "Retirar", primario: true, onClick: async () => {
               try {
-                await retirarPrecio({ materialId, sucursalId, motivo: "Retiro individual desde Publicados" });
-                toast("Precio retirado.");
+                await retirarPrecioDirecto({ materialId, sucursalId, motivo: "Retiro directo desde Publicados" });
+                toast("Precio retirado de la vitrina.");
                 await mountPublicados();
               } catch (err) {
                 toastError(err.message);

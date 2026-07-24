@@ -139,6 +139,25 @@ export async function retirarPrecio({ materialId, sucursalId, motivo = null }) {
   return data;
 }
 
+// Retiro DIRECTO (acción "Bajar/Retirar" de Publicados): cierra el precio vigente aunque el
+// material esté visible en la web. Al cerrarlo (vigencia_hasta = hoy) desaparece de la vitrina.
+// Reservado a gerencia (lo revalida el RPC). Conserva historial y auditoría.
+export async function retirarPrecioDirecto({ materialId, sucursalId, motivo = null }) {
+  const { data, error } = await getClient().rpc("f_precio_retirar_directo", {
+    p_material_id: materialId, p_sucursal_id: sucursalId, p_motivo: motivo,
+  });
+  if (error) throw new Error(traducirError(error.message));
+  return data;
+}
+
+// Lista de empresas/clientes para administración (empresas_panel: incluye inactivas y usos).
+// Se consulta FRESCO cada vez (no se cachea) para el modal de Empresas del Catálogo.
+export async function listarEmpresas() {
+  const { data, error } = await getClient().from("empresas_panel").select("*");
+  if (error) throw new Error(traducirError(error.message));
+  return data || [];
+}
+
 // Enciende o apaga un material en la vitrina pública de una empresa.
 export async function publicarMaterial({ empresaId, materialId, visible }) {
   const { data, error } = await getClient().rpc("f_publicar_material", {
