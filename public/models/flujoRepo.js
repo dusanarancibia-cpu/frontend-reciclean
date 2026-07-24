@@ -11,7 +11,7 @@
 import { getClient } from "./supabase.js";
 
 const COLS = "id, estado, material_id, material, material_texto, precio_recibido_clp, " +
-             "empresa_cliente, sucursal_id, sucursal, precio_publicado_clp, margen_pct, vigencia_desde, " +
+             "empresa_cliente, sucursal_id, sucursal, precio_publicado_clp, margen_pct, calculo, vigencia_desde, " +
              "origen, creado_por, revisado_por, publicado_por, nota, created_at, updated_at, mi_rol";
 
 // `estados` acepta uno o varios. `texto` filtra en el servidor contra la columna indexada
@@ -36,6 +36,26 @@ export async function cargarFilas(filas, origen = "carga_manual") {
 
 export async function pasarAPendiente(ids) {
   const { data, error } = await getClient().rpc("f_borrador_a_pendiente", { p_ids: ids });
+  if (error) throw new Error(traducir(error.message));
+  return data;
+}
+
+// Compuerta de Revisión: la Calculadora ya no publica directo. Envía el pendiente calculado
+// a estado 'revision' (guardando sucursal, P.Lista y la escalera en `calculo`). Gerencia lo
+// aprueba después en la pantalla Revisión.
+export async function enviarARevision({ id, sucursalId, precioPublicado, calculo, nota = null }) {
+  const { data, error } = await getClient().rpc("f_borrador_a_revision", {
+    p_id: id, p_sucursal_id: sucursalId, p_precio_publicado: precioPublicado,
+    p_calculo: calculo, p_nota: nota,
+  });
+  if (error) throw new Error(traducir(error.message));
+  return data;
+}
+
+// Aprobar (publicar) lo que está en revisión: usa los valores ya calculados. "santiago"
+// replica a Maipú + Cerrillos dentro del RPC.
+export async function aprobarRevision({ id, nota = null }) {
+  const { data, error } = await getClient().rpc("f_borrador_aprobar", { p_id: id, p_nota: nota });
   if (error) throw new Error(traducir(error.message));
   return data;
 }

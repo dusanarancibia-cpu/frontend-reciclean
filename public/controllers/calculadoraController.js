@@ -17,8 +17,8 @@
 // Respecto de la versión original se quitó el selector de "Categoría margen": el semáforo
 // ahora compara contra un umbral único configurable en precios_v3.config_calculadora.
 import { calcular, semaforo } from "../calculadora/js/model/formula.js";
-import { listarBorradores, publicar, descartar, catalogos, configCalculadora } from "../models/flujoRepo.js";
-import { precioVigente, actualizarPrecio } from "../models/preciosRepo.js";
+import { listarBorradores, enviarARevision, descartar, catalogos, configCalculadora } from "../models/flujoRepo.js";
+import { precioVigente } from "../models/preciosRepo.js";
 import { abrirModal } from "../components/modal.js";
 import { escapeHTML, filtroGlobal } from "../js/util.js";
 import { rolActual } from "../js/permisos.js";
@@ -295,47 +295,41 @@ async function onPublicar() {
     vol: num("calcVolExacto"), modo: _modo,
   });
   const suc = $("calcSucursal").value;
-  const nombreSuc = _sucursales.find((s) => s.sucursal_id === suc)?.nombre || suc;
+  const nombreSuc = suc === SANTIAGO ? "Santiago (Maipú + Cerrillos)"
+    : (_sucursales.find((s) => s.sucursal_id === suc)?.nombre || suc);
 
   abrirModal({
-    titulo: "Publicar precio",
+    titulo: "Enviar a revisión",
     cuerpoHTML:
-      `<p>Vas a publicar <b>${esc(_sel.material || _sel.material_texto)}</b> en <b>${esc(nombreSuc)}</b>.</p>
+      `<p>Vas a enviar a <b>revisión</b> <b>${esc(_sel.material || _sel.material_texto)}</b> en <b>${esc(nombreSuc)}</b>.</p>
        <table style="width:100%;margin-top:10px;font-size:14px">
-         <tr><td style="padding:3px 0">P.Lista (sale a la web)</td><td style="text-align:right;font-weight:700;color:#047857">${clp(c.plista)}</td></tr>
+         <tr><td style="padding:3px 0">P.Lista (saldrá a la web)</td><td style="text-align:right;font-weight:700;color:#047857">${clp(c.plista)}</td></tr>
          <tr><td style="padding:3px 0">P.Ejecutivo</td><td style="text-align:right;font-weight:600">${clp(c.pejec)}</td></tr>
          <tr><td style="padding:3px 0">P.Máximo</td><td style="text-align:right;font-weight:600">${clp(c.pmax)}</td></tr>
          <tr><td style="padding:3px 0;color:#78716c">Nos pagan</td><td style="text-align:right;color:#78716c">${clp(_sel.precio_recibido_clp)}</td></tr>
        </table>
        <p style="font-size:13px;color:#78716c;margin-top:10px">
-         Solo el P.Lista es público. El resto queda guardado para la negociación interna.</p>`,
+         Gerencia lo aprueba en la pantalla <b>Revisión</b> y recién ahí se publica en la vitrina.</p>`,
     acciones: [
       { texto: "Cancelar" },
-      { texto: "Publicar", primario: true, onClick: async () => {
+      { texto: "Enviar a revisión", primario: true, onClick: async () => {
           const $m = $("calcMsg");
           try {
-            $m.textContent = "Publicando…";
-            // Santiago replica el mismo precio en Maipú y Cerrillos: el borrador se publica
-            // en la primera (queda su trazabilidad) y la otra se escribe como precio directo.
-            const [sucPrincipal, ...resto] = (suc === SANTIAGO) ? SANTIAGO_FANOUT : [suc];
-            await publicar({
-              id: _sel.id, sucursalId: sucPrincipal, precioPublicado: c.plista,
-              precioEjecutivo: c.pejec, precioMaximo: c.pmax,
-              flete: num("calcFlNum"), spreadPct: num("calcBNum"),
-              ivaPct: num("calcIvaNum"), redondeo: _modo,
+            $m.textContent = "Enviando…";
+            // La sucursal (incluido "santiago") viaja tal cual; el fanout a Maipú + Cerrillos
+            // lo resuelve la aprobación en Revisión. La escalera va en `calculo`.
+            await enviarARevision({
+              id: _sel.id, sucursalId: suc, precioPublicado: c.plista,
+              calculo: {
+                ejecutivo: c.pejec, maximo: c.pmax, flete: num("calcFlNum"),
+                spread: num("calcBNum"), iva: num("calcIvaNum"), redondeo: _modo,
+              },
             });
-            for (const s of resto) {
-              await actualizarPrecio({
-                materialId: _sel.material_id, sucursalId: s,
-                publicado: c.plista, recibido: Number(_sel.precio_recibido_clp) || null,
-                motivo: "Réplica de Santiago",
-              });
-            }
-            $m.textContent = suc === SANTIAGO ? "Publicado en Maipú y Cerrillos." : "Publicado.";
+            $m.textContent = "Enviado a revisión.";
             await refrescar();
           } catch (e) {
             $m.textContent = "";
-            abrirModal({ titulo: "No se pudo publicar", cuerpoHTML: `<p>${esc(e.message)}</p>` });
+            abrirModal({ titulo: "No se pudo enviar", cuerpoHTML: `<p>${esc(e.message)}</p>` });
           }
         } },
     ],
