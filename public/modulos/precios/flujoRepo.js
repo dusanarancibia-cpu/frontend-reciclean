@@ -64,6 +64,18 @@ export async function enviarARevision({ id, sucursalId, precioPublicado, calculo
   return data;
 }
 
+// Multi-sucursal: envía a revisión generando UNA fila de borrador POR sucursal (así cada fila
+// tiene un sucursal_id real y se respeta borrador_sucursal_id_fkey). "santiago" se expande a
+// Maipú + Cerrillos en el servidor. Devuelve { ok, revision_ids, sucursales, descartados }.
+export async function enviarARevisionMulti({ id, sucursales, precioPublicado, calculo, nota = null }) {
+  const { data, error } = await getClient().rpc("f_borrador_a_revision_multi", {
+    p_id: id, p_sucursales: sucursales, p_precio_publicado: precioPublicado,
+    p_calculo: calculo, p_nota: nota,
+  });
+  if (error) throw new Error(traducir(error.message));
+  return data;
+}
+
 // Aprobar (publicar) lo que está en revisión: usa los valores ya calculados. "santiago"
 // replica a Maipú + Cerrillos dentro del RPC.
 export async function aprobarRevision({ id, nota = null }) {
