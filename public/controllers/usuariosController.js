@@ -41,9 +41,16 @@ const MODULOS = [
 
 let _filas = [];   // usuarios
 let _roles = [];    // roles_panel: [{id,nombre,protegido,es_admin,rutas,usuarios}]
+let _sucursales = []; // sucursales operativas (Maipú, Cerrillos, Talca, Puerto Montt)
 let _tabla = null;
 let _rol = "lector";
 let _yo = null;
+
+// Opciones de sucursal para los <select> de asignación. `sel` marca la elegida.
+function opcionesSucursal(sel) {
+  return `<option value="">— elige sucursal —</option>` +
+    _sucursales.map((s) => `<option value="${esc(s.sucursal_id)}" ${sel === s.sucursal_id ? "selected" : ""}>${esc(s.nombre)}</option>`).join("");
+}
 
 const rolNombre = (id) => _roles.find((r) => r.id === id)?.nombre || id;
 // ¿El rol da acceso a la ruta por defecto (sin override)? Admin = todo.
@@ -61,15 +68,17 @@ export async function mountUsuarios() {
     const session = await getSession().catch(() => null);
     _yo = session?.user?.email || null;
 
-    const [usr, rls] = await Promise.all([
+    const [usr, rls, suc] = await Promise.all([
       getClient().from("usuarios_panel")
-        .select("user_id, email, rol, nombre, apellido, asignado_por, updated_at, last_sign_in_at, activo, permisos, mi_rol")
+        .select("user_id, email, rol, nombre, apellido, sucursal_asignada, sucursal_nombre, asignado_por, updated_at, last_sign_in_at, activo, permisos, mi_rol")
         .order("email"),
       getClient().from("roles_panel").select("id, nombre, protegido, es_admin, rutas, usuarios").order("id"),
+      getClient().from("sucursales_panel").select("sucursal_id, nombre, activa").eq("activa", true).order("nombre"),
     ]);
     if (usr.error) throw new Error(usr.error.message);
     _filas = usr.data || [];
     _roles = rls.data || [];
+    _sucursales = suc.data || [];
     _rol = _filas[0]?.mi_rol || rolActual();
     pintarRol();
     poblarSelectorLote();
@@ -116,7 +125,7 @@ function renderRow(r) {
     <td class="px-3 py-2.5 text-center"><input type="checkbox" class="usrChk" value="${esc(r.user_id)}" ${editable ? "" : "disabled"}></td>
     <td class="px-4 py-2.5">
       <div class="font-medium text-stone-800">${esc(nombreDe(r))}</div>
-      <div class="text-xs text-stone-400">${esc(r.email)} · ${r.last_sign_in_at ? "último ingreso " + horaChile(r.last_sign_in_at) : "nunca ha entrado"}</div>
+      <div class="text-xs text-stone-400">${esc(r.email)}${r.sucursal_nombre ? " · " + esc(r.sucursal_nombre) : ""} · ${r.last_sign_in_at ? "último ingreso " + horaChile(r.last_sign_in_at) : "nunca ha entrado"}</div>
     </td>
     <td class="px-4 py-2.5">
       <span class="${colorRol(r.rol)}" style="padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700">${esc(rolNombre(r.rol))}</span>${badgeOv}
@@ -159,7 +168,7 @@ function abrirEditor(r) {
       <td style="padding:6px 4px;font-size:13px;color:#1c1917">${esc(m.label)}</td>
       <td style="padding:6px 4px;text-align:right">
         <select class="usrPerm" data-ruta="${esc(m.ruta)}" style="padding:5px 8px;border:1px solid #d6d3d1;border-radius:6px;font-size:12px;background:#fff">
-          <option value=""   ${valor === "" ? "selected" : ""}>Según rol (${heredado})</option>
+          <option value=""   ${valor === "" ? "selected" : ""}>Según cargo (${heredado})</option>
           <option value="on" ${valor === "on" ? "selected" : ""}>Permitir</option>
           <option value="off"${valor === "off" ? "selected" : ""}>Bloquear</option>
         </select>
@@ -178,8 +187,12 @@ function abrirEditor(r) {
     cuerpoHTML: `
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
         <label style="flex:1;min-width:140px">
-          <span style="font-size:12px;color:#57534e">Rol (plantilla)</span>
+          <span style="font-size:12px;color:#57534e">Cargo (plantilla)</span>
           <select id="usrEdRol" style="width:100%;padding:8px;border:1px solid #d6d3d1;border-radius:6px;margin-top:4px;background:#fff">${opcRol}</select>
+        </label>
+        <label style="flex:1;min-width:140px">
+          <span style="font-size:12px;color:#57534e">Sucursal</span>
+          <select id="usrEdSucursal" style="width:100%;padding:8px;border:1px solid #d6d3d1;border-radius:6px;margin-top:4px;background:#fff">${opcionesSucursal(r.sucursal_asignada)}</select>
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1c1917;padding-bottom:8px">
           <input type="checkbox" id="usrEdActivo" ${r.activo ? "checked" : ""} ${esYo ? "disabled title='No puedes desactivarte a ti mismo'" : ""} style="width:18px;height:18px">
@@ -201,7 +214,7 @@ function abrirEditor(r) {
       await rpc("f_asignar_rol", { p_user_ids: [r.user_id], p_rol: nuevo });
       r.rol = nuevo;
       _tabla?.setRows(_filas); contar();
-      toast(`Rol de ${r.email} → ${rolNombre(nuevo)}.`);
+      toast(`Cargo de ${r.email} → ${rolNombre(nuevo)}.`);
       refrescarEtiquetasPermisos(r);
     } catch (err) {
       e.target.value = anterior;
@@ -218,6 +231,20 @@ function abrirEditor(r) {
     } catch (err) {
       e.target.checked = !activo;
       toastError(/ti mismo/i.test(err.message) ? "No puedes desactivarte a ti mismo." : err.message);
+    }
+  });
+
+  $("usrEdSucursal")?.addEventListener("change", async (e) => {
+    const nueva = e.target.value || null, anterior = r.sucursal_asignada || "";
+    try {
+      await rpc("f_usuario_sucursal", { p_user_id: r.user_id, p_sucursal: nueva });
+      r.sucursal_asignada = nueva;
+      r.sucursal_nombre = _sucursales.find((s) => s.sucursal_id === nueva)?.nombre || null;
+      _tabla?.setRows(_filas);
+      toast("Sucursal actualizada.");
+    } catch (err) {
+      e.target.value = anterior;
+      toastError(err.message);
     }
   });
 
@@ -246,7 +273,7 @@ function refrescarEtiquetasPermisos(r) {
   document.querySelectorAll("#usrPermBody .usrPerm").forEach((sel) => {
     const heredado = defaultDaAcceso(r.rol, sel.dataset.ruta) ? "acceso" : "sin acceso";
     const opt = sel.querySelector('option[value=""]');
-    if (opt) opt.textContent = `Según rol (${heredado})`;
+    if (opt) opt.textContent = `Según cargo (${heredado})`;
   });
 }
 
@@ -264,7 +291,10 @@ function abrirCrearUsuario() {
       </div>
       <label style="${lbl}">Email<input id="cuEmail" type="email" autocomplete="off" style="${inp}"></label>
       <label style="${lbl}">Contraseña (mínimo 8 caracteres)<input id="cuPass" type="password" autocomplete="new-password" style="${inp}"></label>
-      <label style="${lbl}">Rol<select id="cuRol" style="${inp};background:#fff">${opcRol}</select></label>
+      <div style="display:flex;gap:10px">
+        <label style="${lbl};flex:1">Cargo<select id="cuRol" style="${inp};background:#fff">${opcRol}</select></label>
+        <label style="${lbl};flex:1">Sucursal asignada<select id="cuSucursal" style="${inp};background:#fff">${opcionesSucursal("")}</select></label>
+      </div>
       <div id="cuError" style="display:none;color:#be123c;font-size:13px;font-weight:600;margin-top:8px"></div>`,
     acciones: [
       { texto: "Cancelar" },
@@ -281,15 +311,17 @@ async function crearUsuario() {
   const nombre = ($("cuNombre").value || "").trim();
   const apellido = ($("cuApellido").value || "").trim();
   const rol = $("cuRol").value;
+  const sucursal = $("cuSucursal").value;
   if (!nombre || !apellido) return mostrar("Nombre y apellido son obligatorios.");
   if (!email) return mostrar("El email es obligatorio.");
   if (password.length < 8) return mostrar("La contraseña debe tener al menos 8 caracteres.");
+  if (!sucursal) return mostrar("La sucursal asignada es obligatoria.");
 
   const btnCrear = document.querySelector(".rc-modal-foot .rc-modal-btn.primario");
   if (btnCrear) { btnCrear.disabled = true; btnCrear.textContent = "Creando…"; }
   try {
     const { data, error } = await getClient().functions.invoke("crear-usuario", {
-      body: { email, password, nombre, apellido, rol },
+      body: { email, password, nombre, apellido, rol, sucursal },
     });
     // En un error HTTP, supabase-js deja el cuerpo en error.context; lo leemos para el mensaje real.
     if (error) {
@@ -329,12 +361,12 @@ function abrirRoles() {
   };
 
   abrirModal({
-    titulo: "Roles y permisos",
+    titulo: "Cargos y permisos",
     cuerpoHTML: `
-      <p style="font-size:13px;color:#78716c;margin-bottom:10px">Marca qué vistas ve cada rol. Los cambios de permiso se guardan al instante; el nombre, con "Renombrar".</p>
+      <p style="font-size:13px;color:#78716c;margin-bottom:10px">Marca qué vistas ve cada cargo. Los cambios de permiso se guardan al instante; el nombre, con "Renombrar".</p>
       <div id="rolLista">${_roles.map(filaRol).join("")}</div>
       <div style="border-top:1px solid #e7e5e4;margin-top:10px;padding-top:10px">
-        <span style="font-size:12px;color:#57534e;font-weight:600">Nuevo rol</span>
+        <span style="font-size:12px;color:#57534e;font-weight:600">Nuevo cargo</span>
         <div style="display:flex;gap:8px;margin-top:6px">
           <input id="rolNuevoNombre" placeholder="Ej. Supervisor de planta" style="flex:1;padding:7px;border:1px solid #d6d3d1;border-radius:6px">
           <button type="button" id="rolCrear" style="background:#047857;color:#fff;border:0;border-radius:6px;padding:7px 12px;font-weight:600;cursor:pointer">Crear</button>
@@ -356,7 +388,7 @@ function abrirRoles() {
       try {
         await rpc("f_rol_permiso_set", { p_rol: chk.dataset.rol, p_ruta: chk.dataset.ruta, p_permitido: chk.checked });
         await recargarRoles();
-        toast("Permiso del rol actualizado.");
+        toast("Permiso del cargo actualizado.");
       } catch (e) { chk.checked = !chk.checked; toastError(e.message); }
     });
   });
@@ -389,8 +421,8 @@ function abrirRoles() {
   // Crear
   $("rolCrear")?.addEventListener("click", async () => {
     const nombre = $("rolNuevoNombre").value.trim();
-    if (!nombre) return toastError("Escribe el nombre del rol.");
-    try { await rpc("f_rol_crear", { p_nombre: nombre }); await recargarRoles(); toast("Rol creado."); cerrarModal(); abrirRoles(); }
+    if (!nombre) return toastError("Escribe el nombre del cargo.");
+    try { await rpc("f_rol_crear", { p_nombre: nombre }); await recargarRoles(); toast("Cargo creado."); cerrarModal(); abrirRoles(); }
     catch (e) { toastError(e.message); }
   });
 }
@@ -410,7 +442,7 @@ function cablearBotonesGerencia() {
 function poblarSelectorLote() {
   const sel = $("usrRolLote");
   if (!sel) return;
-  sel.innerHTML = `<option value="">— rol a aplicar —</option>` +
+  sel.innerHTML = `<option value="">— cargo a aplicar —</option>` +
     _roles.map((r) => `<option value="${esc(r.id)}">${esc(r.nombre)}</option>`).join("");
 }
 
@@ -420,11 +452,11 @@ function cablearLote() {
   btn.addEventListener("click", () => {
     const rol = $("usrRolLote").value;
     const ids = [...document.querySelectorAll("#usrBody .usrChk:checked")].map((c) => c.value);
-    if (!rol) return toastError("Elige el rol que quieres aplicar.");
+    if (!rol) return toastError("Elige el cargo que quieres aplicar.");
     if (!ids.length) return toastError("Marca al menos una persona.");
     abrirModal({
-      titulo: "Cambiar rol",
-      cuerpoHTML: `<p>¿Aplicar el rol <b>${esc(rolNombre(rol))}</b> a <b>${ids.length}</b> persona(s)?</p>`,
+      titulo: "Cambiar cargo",
+      cuerpoHTML: `<p>¿Aplicar el cargo <b>${esc(rolNombre(rol))}</b> a <b>${ids.length}</b> persona(s)?</p>`,
       acciones: [
         { texto: "Cancelar" },
         { texto: "Aplicar", primario: true, onClick: () => aplicarRolLote(ids, rol) },
@@ -438,7 +470,7 @@ async function aplicarRolLote(ids, rol) {
     await rpc("f_asignar_rol", { p_user_ids: ids, p_rol: rol });
     _filas.forEach((f) => { if (ids.includes(f.user_id)) f.rol = rol; });
     _tabla?.setRows(_filas); contar();
-    toast(`Rol ${rolNombre(rol)} aplicado a ${ids.length} persona(s).`);
+    toast(`Cargo ${rolNombre(rol)} aplicado a ${ids.length} persona(s).`);
   } catch (e) {
     toastError(/administrador/i.test(e.message) ? "No puedes quitarte a ti mismo el acceso de administrador." : e.message);
   }

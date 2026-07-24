@@ -12,12 +12,15 @@ export const MENU = [
   ]},
   // Orden del flujo real del dato: Carga Manual → Calculadora → Publicados → Historial.
   // "Pendientes" se retiró: la Calculadora lista la misma cola y la resuelve completa.
+  // Orden estricto del nuevo flujo operativo: Carga → Calculadora → Revisión (aprobación)
+  // → Publicados → Historial → Recibidos (auditoría de precios que nos dan los clientes).
   { seccion: "Precios", ico: "🏷️", items: [
-    { ico: "📝", label: "Carga manual",  route: "carga-manual", ready: true },
+    { ico: "📝", label: "Carga Manual",  route: "carga-manual", ready: true },
     { ico: "🧮", label: "Calculadora",   route: "calculadora",  ready: true },
+    { ico: "🔎", label: "Revisión",      route: "revision",     ready: true },
     { ico: "🌐", label: "Publicados",    route: "publicados",   ready: true },
     { ico: "📚", label: "Historial",     route: "historial",    ready: true },
-    { ico: "🏷️", label: "Materiales y Precios", route: "materiales", ready: true },
+    { ico: "📥", label: "Recibidos",     route: "recibidos",    ready: true },
   ]},
   // Dominio COMERCIAL (integrado del repo de Pablo). Solo 3 módulos están pulidos
   // (Clientes, Oportunidades, Agenda); los demás quedan como "pronto" hasta terminarlos.
@@ -33,8 +36,9 @@ export const MENU = [
   // "Vitrina pública" se fusionó dentro de Publicados: publicar y ver lo publicado son
   // la misma decisión, y separarlas obligaba a gerencia a cruzar dos pantallas.
   { seccion: "Administración", ico: "⚙️", items: [
-    { ico: "📦", label: "Catálogo de materiales", route: "catalogo", ready: true },
-    { ico: "👥", label: "Usuarios",              route: "usuarios", ready: true },
+    { ico: "🏷️", label: "Materiales y Precios",   route: "materiales", ready: true },
+    { ico: "📦", label: "Catálogo de materiales", route: "catalogo",   ready: true },
+    { ico: "👥", label: "Usuarios",               route: "usuarios",   ready: true },
   ]},
   // "Propuestas IA" y "Aprobación Final" quedan fuera del menú por decisión de negocio
   // (se obvian por ahora). Sus rutas y controladores siguen existiendo: no se borró código.

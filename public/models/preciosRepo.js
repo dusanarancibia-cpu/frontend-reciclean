@@ -111,6 +111,21 @@ export async function listarHistorialPrecios({ texto = "", limite = 1000 } = {})
   return data || [];
 }
 
+// Histórico de precios que nos entregan los clientes/fundiciones (INTERNO). Fuente:
+// public.recibidos_panel, que solo devuelve filas a gerencia/operador (el precio recibido
+// es interno). Incluye vigentes e históricos. El filtrado fino (empresa/categoría/texto)
+// se hace en memoria en el controlador.
+export async function listarRecibidos({ limite = 3000 } = {}) {
+  const { data, error } = await getClient()
+    .from("recibidos_panel")
+    .select("id, material_id, material, categoria, categoria_nombre, categoria_orden, " +
+            "empresa_cliente, precio_recibido, fecha, sucursal_id, sucursal, creado_por, vigente, mi_rol")
+    .order("fecha", { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 // Retira (cierra vigencia de) un precio de una sucursal. El RPC solo lo permite si el
 // material no está visible en ninguna web; conserva el historial y no rompe FK.
 export async function retirarPrecio({ materialId, sucursalId, motivo = null }) {

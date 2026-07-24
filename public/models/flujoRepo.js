@@ -119,11 +119,10 @@ export async function catalogos() {
   const [m, s] = await Promise.all([
     sb.from("materiales_panel").select("material_id, nombre_interno").eq("activo", true)
       .order("nombre_interno").limit(2000),
-    sb.from("precios_panel").select("sucursal_id, sucursal").limit(1000),
+    // Todas las sucursales operativas (incluida Puerto Montt aunque aún no tenga precios).
+    sb.from("sucursales_panel").select("sucursal_id, nombre").eq("activa", true).order("nombre"),
   ]);
-  const sucs = [...new Map((s.data || []).map((r) => [r.sucursal_id, r.sucursal])).entries()]
-    .map(([id, nombre]) => ({ sucursal_id: id, nombre }))
-    .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"));
+  const sucs = (s.data || []).map((r) => ({ sucursal_id: r.sucursal_id, nombre: r.nombre }));
   return { materiales: m.data || [], sucursales: sucs };
 }
 

@@ -89,9 +89,10 @@ const ROUTES = {
 // denegado" (esa ruta ya no existe en rol_permiso) en vez de llevar a la Calculadora.
 // Sirven para no romper enlaces guardados ni #hash escritos a mano.
 const ALIAS = {
-  recibidos:  "historial",    // Recibidos  → Historial
   pendientes: "calculadora",  // Pendientes → Calculadora (resuelve la misma cola)
   vitrina:    "publicados",   // Vitrina    → Publicados (absorbió la publicación)
+  // "recibidos" ya NO es alias de historial: es su propio módulo (auditoría de precios
+  // recibidos de los clientes). Su ruta ya vive en ROUTES con mountRecibidos.
 };
 
 // Primera pantalla del flujo. Además es la ruta a la que todos los roles tienen acceso.

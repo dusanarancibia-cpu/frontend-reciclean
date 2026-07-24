@@ -1,28 +1,46 @@
-<!-- VISTA · Recibidos. Datos crudos capturados por Diego desde imágenes (datos reales).
-     Fuente: staging.precios_propuestos (orden created_at DESC). -->
-<section class="max-w-5xl mx-auto p-4 md:p-6">
-  <header class="mb-4">
-    <h2 class="text-2xl font-bold text-stone-800">Recibidos</h2>
-    <p class="text-sm text-stone-500 mt-1">Precios recién recibidos (de Diego o de Carga manual), en orden de llegada. Presiona <b>Calcular</b> para procesarlos.</p>
+<!-- VISTA · Recibidos. Auditoría histórica de los precios que nos entregan los clientes/
+     fundiciones (precio recibido = lo que nos pagan). Es INTERNO: solo gerencia y operador
+     ven datos; para lector aparece vacío. Los IDs los consume /controllers/recibidosController.js. -->
+<section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-stone-800">Auditoría de Precios Recibidos</h2>
+      <p class="text-sm text-stone-500 mt-1">
+        Registro histórico de los precios que nos entregan los clientes y fundiciones, por
+        material, empresa y sucursal. Agrupado por categoría.
+      </p>
+    </div>
+    <span id="recRolChip" class="chip off">cargando…</span>
   </header>
 
-  <div class="bg-white border border-stone-300 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead id="recibidosHead" class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
-        <tr>
-          <th class="text-left px-4 py-2.5" data-sort="id">ID</th>
-          <th class="text-left px-4 py-2.5" data-sort="material">Material</th>
-          <th class="text-left px-4 py-2.5" data-sort="sucursal">Sucursal</th>
-          <th class="text-left px-4 py-2.5" data-sort="created_at">Fecha de carga</th>
-          <th class="text-right px-4 py-2.5" data-sort="precio_clp_kg">Precio/kg</th>
-          <th class="text-right px-4 py-2.5">Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="recibidosBody" class="divide-y divide-stone-100">
-        <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400">Cargando…</td></tr>
-      </tbody>
-    </table>
+  <div id="recAviso" class="hidden mb-4 rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-800 border border-amber-200"></div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Registros</div><div class="text-2xl font-bold text-stone-800 mt-1" id="recKpiTotal">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Vigentes</div><div class="text-2xl font-bold text-emerald-700 mt-1" id="recKpiVigentes">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Empresas</div><div class="text-2xl font-bold text-sky-700 mt-1" id="recKpiEmpresas">—</div></div>
+    <div class="bg-white border border-stone-300 rounded-lg p-3"><div class="text-xs text-stone-500 uppercase tracking-wider">Materiales</div><div class="text-2xl font-bold text-stone-700 mt-1" id="recKpiMateriales">—</div></div>
   </div>
-  <div id="recibidosPager"></div>
-  <p class="text-xs text-stone-500 mt-3" id="recibidosInfo"></p>
+
+  <div class="bg-white border border-stone-300 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
+    <input id="recBuscar" type="search" placeholder="Buscar material, empresa o sucursal…"
+      class="border border-stone-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[220px]">
+    <select id="recCategoria" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
+      <option value="">Todas las categorías</option>
+    </select>
+    <select id="recEmpresa" class="border border-stone-300 rounded px-2 py-1.5 text-sm bg-white">
+      <option value="">Todas las empresas</option>
+    </select>
+    <label class="flex items-center gap-1 text-xs text-stone-600">
+      <input type="checkbox" id="recSoloVigentes"> Solo vigentes
+    </label>
+    <button id="recExpandir" class="bg-white border border-stone-300 text-stone-600 px-3 py-1.5 rounded text-sm font-medium">Expandir/plegar</button>
+    <button id="recExportar" class="bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-medium">Exportar CSV</button>
+    <span id="recResumen" class="text-xs text-stone-500"></span>
+  </div>
+
+  <!-- Acordeón por categoría -->
+  <div id="recAcc"></div>
+  <p class="text-xs text-stone-500 mt-3" id="recInfo"></p>
 </section>

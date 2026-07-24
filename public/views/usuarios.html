@@ -5,7 +5,7 @@
     <div>
       <h2 class="text-2xl font-bold text-stone-800">Usuarios y Permisos</h2>
       <p class="text-sm text-stone-500 mt-1">
-        Asigna el rol de cada persona. El rol define qué secciones puede abrir y qué datos ve.
+        Asigna el cargo de cada persona. El cargo define qué secciones puede abrir y qué datos ve.
       </p>
     </div>
     <span id="usrRolChip" class="chip off">cargando…</span>
@@ -38,7 +38,7 @@
       <option value="">— rol a aplicar —</option>
     </select>
     <button id="usrAplicarLote" class="bg-stone-800 text-white px-3 py-1.5 rounded text-sm font-medium">Aplicar a seleccionados</button>
-    <button id="usrRoles" class="hidden bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">Roles</button>
+    <button id="usrRoles" class="hidden bg-white border border-stone-300 text-stone-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto">Cargos</button>
     <button id="usrCrear" class="hidden bg-emerald-700 text-white px-3 py-1.5 rounded text-sm font-semibold">+ Crear usuario</button>
   </div>
 
@@ -48,7 +48,7 @@
         <tr>
           <th class="px-3 py-2.5"><input type="checkbox" id="usrTodos" title="Seleccionar todo"></th>
           <th class="text-left px-4 py-2.5" data-sort="email">Persona</th>
-          <th class="text-left px-4 py-2.5" data-sort="rol">Rol</th>
+          <th class="text-left px-4 py-2.5" data-sort="rol">Cargo</th>
           <th class="text-left px-4 py-2.5" data-sort="estado">Estado</th>
           <th class="text-right px-4 py-2.5">Acciones</th>
         </tr>
@@ -63,7 +63,7 @@
 
   <p class="text-xs text-stone-500 mt-4 border-t border-stone-200 pt-3">
     <b>Para crear cuentas nuevas</b>: invita a la persona desde Supabase → Authentication → Users.
-    Apenas entre por primera vez aparecerá en esta lista como <b>lector</b> y podrás asignarle su rol y permisos.
+    Apenas entre por primera vez aparecerá en esta lista como <b>lector</b> y podrás asignarle su cargo y permisos.
     <br>🗑 <b>Eliminar</b> una persona = <b>desactivarla</b> (baja lógica): pierde todo acceso pero se conserva
     su historial. Puedes reactivarla cuando quieras.
   </p>

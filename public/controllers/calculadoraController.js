@@ -32,6 +32,10 @@ const num = (id, def = 0) => { const v = Number($(id)?.value); return Number.isF
 // asignado originalmente al material (el que traía el pendiente al cargarse).
 const TOPE_VENTA = 0.15;
 
+// Regla de margen (punto 3): parte en 20% por defecto (config def_margen_pct) y NO puede
+// superar 60% — validación bloqueante que impide publicar.
+const MARGEN_MAX = 60;
+
 // "Santiago" no es una sucursal real: es un atajo que replica el mismo precio en las dos
 // sucursales de la zona (Maipú y Cerrillos). Elegir Maipú o Cerrillos por separado NO replica.
 const SANTIAGO = "santiago";
@@ -245,6 +249,10 @@ function validar(c) {
   if (_baseVenta > 0 && venta > topeVenta) {
     msg = `El Precio Venta ${clp(venta)} supera en más de 15% el precio base ` +
           `(${clp(_baseVenta)} · tope ${clp(Math.round(topeVenta))}). Corrígelo para continuar.`;
+  }
+  // Tope de margen (punto 3): sobre 60% no se puede publicar.
+  else if (num("calcMgNum") > MARGEN_MAX) {
+    msg = `El margen ${num("calcMgNum")}% supera el máximo permitido de ${MARGEN_MAX}%. Bájalo para continuar.`;
   }
   else if (!$("calcSucursal").value) msg = "Elige una sucursal para poder publicar.";
   else if (c.plista <= 0) msg = "El P.Lista debe ser mayor que 0.";
