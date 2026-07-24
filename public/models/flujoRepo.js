@@ -11,7 +11,7 @@
 import { getClient } from "./supabase.js";
 
 const COLS = "id, estado, material_id, material, material_texto, precio_recibido_clp, " +
-             "sucursal_id, sucursal, precio_publicado_clp, margen_pct, vigencia_desde, " +
+             "empresa_cliente, sucursal_id, sucursal, precio_publicado_clp, margen_pct, vigencia_desde, " +
              "origen, creado_por, revisado_por, publicado_por, nota, created_at, updated_at, mi_rol";
 
 // `estados` acepta uno o varios. `texto` filtra en el servidor contra la columna indexada

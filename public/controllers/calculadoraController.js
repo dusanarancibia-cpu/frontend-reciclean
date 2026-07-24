@@ -27,6 +27,22 @@ const $ = (id) => document.getElementById(id);
 const esc = escapeHTML;
 const clp = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CL"));
 const num = (id, def = 0) => { const v = Number($(id)?.value); return Number.isFinite(v) ? v : def; };
+const fechaCorta = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("-") : "—");
+
+// Badge de color por empresa/cliente: la misma empresa siempre cae en el mismo color (hash),
+// para distinguir de un vistazo las combinaciones material+empresa en la lista de pendientes.
+const BADGES = [
+  "background:#dbeafe;color:#1e40af", "background:#dcfce7;color:#166534",
+  "background:#fef3c7;color:#92400e", "background:#ede9fe;color:#5b21b6",
+  "background:#ffe4e6;color:#9f1239", "background:#cffafe;color:#155e75",
+  "background:#fae8ff;color:#86198f", "background:#e0e7ff;color:#3730a3",
+];
+function badgeEmpresa(nombre) {
+  if (!nombre) return "";
+  let h = 0;
+  for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) >>> 0;
+  return ` <span style="${BADGES[h % BADGES.length]};padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700">${esc(nombre)}</span>`;
+}
 
 // Regla de negocio: el "Precio Venta" editado no puede superar en más de 15% el precio base
 // asignado originalmente al material (el que traía el pendiente al cargarse).
@@ -94,8 +110,9 @@ function pintarLista(filas) {
     lista.innerHTML = filas.map((r) => `
       <button type="button" class="calcItem w-full text-left px-2 py-2 hover:bg-stone-50 ${
         _sel?.id === r.id ? "bg-emerald-50" : ""}" data-id="${r.id}">
-        <div class="font-medium text-stone-800 text-sm">${esc(r.material || r.material_texto || "—")}</div>
+        <div class="font-medium text-stone-800 text-sm">${esc(r.material || r.material_texto || "—")}${badgeEmpresa(r.empresa_cliente)}</div>
         <div class="text-xs text-stone-500">Nos pagan ${clp(r.precio_recibido_clp)} · ${esc(r.origen)}</div>
+        <div class="text-xs text-gray-400">Vigencia ${fechaCorta(r.vigencia_desde)}</div>
       </button>`).join("");
     lista.querySelectorAll(".calcItem").forEach((b) =>
       b.addEventListener("click", () => seleccionar(Number(b.dataset.id))));
@@ -107,7 +124,7 @@ function cablearBuscador() {
   const b = $("calcBuscar");
   if (!b) return;
   b.addEventListener("input", () =>
-    pintarLista(filtroGlobal(_pendientes, b.value, ["material", "material_texto", "origen", "creado_por"])));
+    pintarLista(filtroGlobal(_pendientes, b.value, ["material", "material_texto", "empresa_cliente", "origen", "creado_por"])));
 }
 
 // ── Selección de un caso ──────────────────────────────────────────────────────

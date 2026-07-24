@@ -60,6 +60,7 @@ function filaHTML() {
   return `<tr class="cmRow hover:bg-stone-50">
     <td class="px-3 py-2"><input class="cmMat ${INP}" list="cmMatList" autocomplete="off"
         placeholder="Escribe para buscar…" style="width:100%"></td>
+    <td class="px-3 py-2"><input class="cmEmpresa ${INP}" autocomplete="off" placeholder="Cliente (opcional)" style="width:100%"></td>
     <td class="px-3 py-2"><input type="number" class="cmPrecio ${INP}" style="width:100%;text-align:right" min="0" step="1" placeholder="0"></td>
     <td class="px-3 py-2"><input type="date" class="cmFecha ${INP}" style="width:100%" value="${hoyISO()}"></td>
     <td class="px-2 py-2 text-center">
@@ -151,10 +152,12 @@ function matrizAObjetos(matriz) {
   const headers = matriz[0].map((h) => normId(h));
   const col = (cands) => headers.findIndex((h) => cands.some((c) => h.includes(c)));
   const iMat = col(["material"]);
+  const iEmp = col(["empresa", "cliente", "fundicion", "fundición"]);
   const iPre = col(["precio", "venta", "valor"]);
   const iVig = col(["vigencia", "fecha"]);
   return matriz.slice(1).map((r) => ({
     material: iMat >= 0 ? r[iMat] : "",
+    empresa:  iEmp >= 0 ? r[iEmp] : "",
     precio:   iPre >= 0 ? r[iPre] : "",
     vigencia: iVig >= 0 ? r[iVig] : "",
   }));
@@ -171,6 +174,7 @@ function volcarFilas(objetos, etiquetaOrigen) {
     // El combobox muestra el NOMBRE: si se reconoció, el canónico del catálogo; si no, el
     // texto crudo para que el usuario lo corrija a ojo (queda en ámbar).
     tr.querySelector(".cmMat").value = matId ? (_nameById.get(matId) || o.material || "") : (o.material || "");
+    if (o.empresa) tr.querySelector(".cmEmpresa").value = o.empresa;
     const precio = parseNum(o.precio);
     if (Number.isFinite(precio)) tr.querySelector(".cmPrecio").value = precio;
     const fecha = aFechaISO(o.vigencia);
@@ -234,6 +238,7 @@ function recolectar() {
   filas.forEach((tr, i) => {
     const nombre = tr.querySelector(".cmMat").value.trim();
     const mat = _matByName.get(normId(nombre)) || "";   // resuelve nombre → material_id
+    const empresa = tr.querySelector(".cmEmpresa").value.trim();
     const precioTxt = tr.querySelector(".cmPrecio").value;
     const precio = parseFloat(precioTxt);
     const fecha = tr.querySelector(".cmFecha").value || null;
@@ -247,6 +252,7 @@ function recolectar() {
     }
     payloads.push({
       material_id: mat,
+      empresa_cliente: empresa || null,
       precio_recibido_clp: precio,
       vigencia_desde: fecha,
     });
@@ -334,6 +340,6 @@ export async function mountCargaManual() {
       aviso.classList.remove("hidden");
     }
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-rose-600">No pude cargar el formulario: ${esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-rose-600">No pude cargar el formulario: ${esc(e.message)}</td></tr>`;
   }
 }

@@ -21,13 +21,14 @@
       <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider select-none">
         <tr>
           <th class="text-left px-3 py-2.5">Material</th>
+          <th class="text-left px-3 py-2.5" title="Cliente o fundición que nos da este precio">Empresa / Cliente</th>
           <th class="text-right px-3 py-2.5" title="Lo que nos paga la fundición por este material">Precio venta (fundición)</th>
           <th class="text-left px-3 py-2.5">Vigencia</th>
           <th class="px-3 py-2.5"></th>
         </tr>
       </thead>
       <tbody id="cmBody" class="divide-y divide-stone-100">
-        <tr><td colspan="4" class="px-4 py-8 text-center text-stone-400">Cargando materiales…</td></tr>
+        <tr><td colspan="5" class="px-4 py-8 text-center text-stone-400">Cargando materiales…</td></tr>
       </tbody>
     </table>
   </div>
@@ -53,7 +54,7 @@
     </button>
   </div>
   <p class="text-xs text-stone-500 mt-2">
-    Columnas del archivo: <b>material, precio, vigencia</b>. El material se empareja por nombre
+    Columnas del archivo: <b>material, empresa, precio, vigencia</b>. El material se empareja por nombre
     contra el catálogo; lo que no se reconozca queda marcado en ámbar para que lo corrijas.
   </p>
   <p class="text-sm text-stone-600 mt-2" id="cmInfo"></p>
